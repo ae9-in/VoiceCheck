@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import connectDB from './config/db.js';
 import recordingsRouter from './routes/recordings.js';
+import authRouter from './routes/auth.js';
 
 // Load environment variables
 dotenv.config();
@@ -24,6 +25,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/recordings', recordingsRouter);
+app.use('/api/auth', authRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

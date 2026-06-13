@@ -1,10 +1,12 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { useRecordingStore } from '../../store/useRecordingStore';
-import { Menu, Search, Bell, ChevronRight } from 'lucide-react';
+import { useAuthStore } from '../../store/useAuthStore';
+import { Menu, Search, Bell, ChevronRight, LogOut } from 'lucide-react';
 
 export default function Header({ onMenuClick }) {
   const { searchQuery, setSearchQuery } = useRecordingStore();
+  const { user, logout } = useAuthStore();
   const location = useLocation();
 
   const getBreadcrumbs = () => {
@@ -44,6 +46,10 @@ export default function Header({ onMenuClick }) {
 
   const crumbs = getBreadcrumbs();
   const showSearch = ['/', '/recordings', '/duplicates'].includes(location.pathname);
+
+  const initials = user && user.name
+    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase()
+    : 'US';
 
   return (
     <header className="fixed top-0 left-0 w-full z-40 flex flex-col bg-surface border-b border-outline-variant lg:pl-72">
@@ -103,7 +109,7 @@ export default function Header({ onMenuClick }) {
         )}
 
         {/* Right Side: Profile & Notifications */}
-        <div className="flex items-center gap-md">
+        <div className="flex items-center gap-4">
           {/* Notifications Trigger */}
           <button className="relative p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors">
             <Bell size={18} strokeWidth={1.5} />
@@ -112,13 +118,27 @@ export default function Header({ onMenuClick }) {
             </span>
           </button>
           
-          {/* Profile Avatar */}
-          <div className="w-9 h-9 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold overflow-hidden border border-outline-variant cursor-pointer hover:opacity-85 transition-opacity">
-            <img 
-              alt="Admin Profile" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFQlKmeJH5Db2iD2aEIwowp14bWtVkXJkE2TdVOlkXF-vZaEUdsSPL7AvuXrGZPaJc1YkeiKhNFkYY3wMW6fhQppBykMkJuSyRMXBboKqrLUVG2GCWqqAUKy70Itmcxr8KqdKX45zkxSoKQuXq9RvALiuj_UY85Nqq6tMH2MPyI0k1axVLMAGRwmbxzoUp8p_cxYlz6FsPkMC6f8pIueEzc4VFIUuh58ztftJx32Hj3x21JCri7HrXq5SHow6a7IzhbthtV9N5HkjZ"
-              className="w-full h-full object-cover"
-            />
+          {/* Profile Details & Action */}
+          <div className="flex items-center gap-2.5">
+            <div className="hidden md:flex flex-col items-end">
+              <span className="text-xs font-bold text-gray-800 leading-tight">{user?.name || 'User'}</span>
+              <span className="text-[10px] text-gray-400 font-semibold leading-none">{user?.email || ''}</span>
+            </div>
+            
+            <div 
+              className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shadow-2xs"
+              title={user?.name || 'User Profile'}
+            >
+              {initials}
+            </div>
+
+            <button
+              onClick={() => logout()}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              title="Logout"
+            >
+              <LogOut size={16} strokeWidth={1.5} />
+            </button>
           </div>
         </div>
       </div>
