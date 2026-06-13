@@ -60,19 +60,34 @@ export default function Dashboard() {
   const duplicateCount = recordings.filter(r => r.status !== 'Unique').length;
   const totalMinutes = Math.round(recordings.reduce((sum, r) => sum + r.duration, 0) / 60);
 
-  // 2. Generate Daily Uploads Mock Data
-  const last7Days = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
+  // 2. Compute Daily Uploads Activity Data from actual recordings
+  const uploadActivityData = useMemo(() => {
+    const daysCount = activePeriod === '30d' ? 30 : 7;
+    return Array.from({ length: daysCount }, (_, i) => {
       const date = new Date();
-      date.setDate(date.getDate() - (6 - i));
+      date.setDate(date.getDate() - (daysCount - 1 - i));
+      const dateStr = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      
+      const matches = recordings.filter(r => {
+        const rDate = new Date(r.uploadTime);
+        return (
+          rDate.getDate() === date.getDate() &&
+          rDate.getMonth() === date.getMonth() &&
+          rDate.getFullYear() === date.getFullYear()
+        );
+      });
+
+      const unique = matches.filter(r => r.status === 'Unique').length;
+      const duplicate = matches.length - unique;
+
       return {
-        date: date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-        total: Math.floor(Math.random() * 8) + 2,
-        unique: Math.floor(Math.random() * 6) + 1,
-        duplicate: Math.floor(Math.random() * 3)
+        date: dateStr,
+        total: matches.length,
+        unique,
+        duplicate
       };
     });
-  }, []);
+  }, [recordings, activePeriod]);
 
   // 3. Compute Pie Data
   const statusData = useMemo(() => {
@@ -243,7 +258,7 @@ export default function Dashboard() {
 
           <div className="w-full">
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={last7Days} barSize={14} barGap={2}>
+              <BarChart data={uploadActivityData} barSize={14} barGap={2}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={24} />
