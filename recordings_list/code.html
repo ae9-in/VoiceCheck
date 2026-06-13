@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VoiceCheck - Recordings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fcf8ff;
+        }
+        .recording-card-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+            align-items: center;
+        }
+        @media (max-width: 1024px) {
+            .recording-card-grid {
+                grid-template-columns: 1fr auto;
+                gap: 8px;
+            }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-container": "#dad7ff",
+                      "error": "#ba1a1a",
+                      "on-surface": "#1b1b24",
+                      "tertiary-container": "#a44100",
+                      "surface-container-highest": "#e4e1ee",
+                      "on-error": "#ffffff",
+                      "surface-bright": "#fcf8ff",
+                      "tertiary": "#7e3000",
+                      "on-secondary-container": "#60646f",
+                      "primary-fixed": "#e2dfff",
+                      "on-background": "#1b1b24",
+                      "on-error-container": "#93000a",
+                      "on-secondary": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "surface-container-low": "#f5f2ff",
+                      "background": "#fcf8ff",
+                      "outline": "#777587",
+                      "on-secondary-fixed-variant": "#424751",
+                      "surface-dim": "#dcd8e5",
+                      "surface-tint": "#4d44e3",
+                      "on-surface-variant": "#464555",
+                      "on-primary-fixed-variant": "#3323cc",
+                      "primary": "#3525cd",
+                      "surface-container": "#f0ecf9",
+                      "error-container": "#ffdad6",
+                      "tertiary-fixed": "#ffdbcc",
+                      "primary-container": "#4f46e5",
+                      "on-secondary-fixed": "#171c25",
+                      "surface": "#fcf8ff",
+                      "secondary-fixed": "#dee2ef",
+                      "secondary-fixed-dim": "#c2c6d3",
+                      "inverse-on-surface": "#f3effc",
+                      "on-primary": "#ffffff",
+                      "surface-container-high": "#eae6f4",
+                      "on-tertiary-fixed": "#351000",
+                      "surface-container-lowest": "#ffffff",
+                      "on-tertiary-fixed-variant": "#7b2f00",
+                      "surface-variant": "#e4e1ee",
+                      "primary-fixed-dim": "#c3c0ff",
+                      "inverse-surface": "#302f39",
+                      "inverse-primary": "#c3c0ff",
+                      "on-primary-fixed": "#0f0069",
+                      "outline-variant": "#c7c4d8",
+                      "on-tertiary-container": "#ffd2be",
+                      "secondary": "#5a5e69",
+                      "secondary-container": "#dee2ef",
+                      "tertiary-fixed-dim": "#ffb695"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "md": "16px",
+                      "xs": "4px",
+                      "lg": "24px",
+                      "base": "4px",
+                      "margin-mobile": "16px",
+                      "xl": "32px",
+                      "gutter": "20px",
+                      "sm": "8px",
+                      "margin-desktop": "32px",
+                      "2xl": "48px"
+              },
+              "fontFamily": {
+                      "label-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "display": ["Inter"],
+                      "label-sm": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "headline-lg-mobile": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "body-md": ["Inter"]
+              },
+              "fontSize": {
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface">
+<!-- Desktop Navigation Drawer -->
+<nav class="hidden lg:flex flex-col fixed left-0 top-0 h-full z-50 pt-lg bg-surface border-r border-outline-variant w-72">
+<div class="px-md mb-xl">
+<span class="font-display text-display text-primary">VoiceCheck</span>
+</div>
+<div class="flex flex-col gap-xs flex-1">
+<a class="flex items-center gap-md bg-primary-container text-on-primary-container rounded-full px-md py-sm mx-sm scale-[0.98] transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="mic">mic</span>
+<span class="font-label-md text-label-md">Recordings</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm mx-sm hover:bg-surface-container-highest rounded-full transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-label-md text-label-md">Analytics</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm mx-sm hover:bg-surface-container-highest rounded-full transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="folder">folder</span>
+<span class="font-label-md text-label-md">Folders</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm mx-sm hover:bg-surface-container-highest rounded-full transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</div>
+</nav>
+<!-- Top App Bar -->
+<header class="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-md h-16 bg-surface border-b border-outline-variant lg:pl-[288px]">
+<div class="flex items-center gap-md">
+<button class="lg:hidden p-2 text-primary">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<span class="text-headline-md font-headline-md font-bold text-primary lg:hidden">VoiceCheck</span>
+<div class="hidden lg:flex items-center gap-xs text-on-surface-variant">
+<span class="font-body-md text-body-md">Home</span>
+<span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+<span class="font-label-md text-label-md text-primary">Recordings</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a young business woman with a friendly expression. She is wearing a modern corporate blazer, and the background is a soft, blurred office interior with clean lines and natural lighting. The overall aesthetic is professional, modern, and aligned with a corporate light-mode theme using soft grays and muted blues." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFQlKmeJH5Db2iD2aEIwowp14bWtVkXJkE2TdVOlkXF-vZaEUdsSPL7AvuXrGZPaJc1YkeiKhNFkYY3wMW6fhQppBykMkJuSyRMXBboKqrLUVG2GCWqqAUKy70Itmcxr8KqdKX45zkxSoKQuXq9RvALiuj_UY85Nqq6tMH2MPyI0k1axVLMAGRwmbxzoUp8p_cxYlz6FsPkMC6f8pIueEzc4VFIUuh58ztftJx32Hj3x21JCri7HrXq5SHow6a7IzhbthtV9N5HkjZ"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 pb-24 lg:pb-8 lg:ml-72 px-md lg:px-xl max-w-7xl">
+<!-- Page Header & Action -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-xl">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-xs">Recordings</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage and audit your voice verification library.</p>
+</div>
+<button class="flex items-center justify-center gap-sm bg-primary text-on-primary px-lg py-md rounded-full font-label-md text-label-md hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                Upload New
+            </button>
+</div>
+<!-- Search & Filters -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md mb-lg flex flex-col md:flex-row gap-md items-center">
+<div class="relative flex-1 w-full">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<input class="w-full pl-xl pr-md py-md bg-surface border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:outline-none font-body-md text-body-md" placeholder="Search by name, ID or date..." type="text"/>
+</div>
+<div class="flex gap-sm w-full md:w-auto">
+<button class="flex items-center gap-xs px-md py-md border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+                    Filter
+                </button>
+<button class="flex items-center gap-xs px-md py-md border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="sort">sort</span>
+                    Sort
+                </button>
+</div>
+</div>
+<!-- Recordings List -->
+<div class="flex flex-col gap-sm">
+<!-- List Header (Desktop Only) -->
+<div class="hidden lg:grid recording-card-grid px-lg py-sm text-on-surface-variant font-label-sm text-label-sm">
+<div>CANDIDATE</div>
+<div>RECORDING ID</div>
+<div>STATUS</div>
+<div>DURATION</div>
+<div>UPLOAD DATE</div>
+<div class="w-10"></div>
+</div>
+<!-- Recording Item 1 (Unique) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md lg:px-lg hover:shadow-sm transition-shadow">
+<div class="recording-card-grid">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-primary-fixed text-primary flex items-center justify-center font-bold">JD</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">John Doe</span>
+<span class="lg:hidden font-body-sm text-body-sm text-on-surface-variant">REC-2024-001</span>
+</div>
+</div>
+<div class="hidden lg:block font-body-sm text-body-sm text-on-surface-variant">REC-2024-001</div>
+<div class="flex">
+<span class="bg-surface-container-high text-on-surface-variant font-label-sm text-[11px] px-2 py-0.5 rounded-full border border-outline-variant uppercase">Unique</span>
+</div>
+<div class="hidden lg:flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+<span class="font-body-sm text-body-sm">05:42</span>
+</div>
+<div class="hidden lg:block font-body-sm text-body-sm text-on-surface-variant">Oct 24, 2024</div>
+<div class="flex justify-end">
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Recording Item 2 (Exact Duplicate) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md lg:px-lg hover:shadow-sm transition-shadow">
+<div class="recording-card-grid">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed text-secondary flex items-center justify-center font-bold">SA</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Sarah Adams</span>
+<span class="lg:hidden font-body-sm text-body-sm text-on-surface-variant">REC-2024-023</span>
+</div>
+</div>
+<div class="hidden lg:block font-body-sm text-body-sm text-on-surface-variant">REC-2024-023</div>
+<div class="flex">
+<span class="bg-error-container text-error font-label-sm text-[11px] px-2 py-0.5 rounded-full border border-error uppercase">Exact Duplicate</span>
+</div>
+<div class="hidden lg:flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+<span class="font-body-sm text-body-sm">03:15</span>
+</div>
+<div class="hidden lg:block font-body-sm text-body-sm text-on-surface-variant">Oct 23, 2024</div>
+<div class="flex justify-end">
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Recording Item 3 (Near Duplicate) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md lg:px-lg hover:shadow-sm transition-shadow">
+<div class="recording-card-grid">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed text-tertiary flex items-center justify-center font-bold">MK</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Michael Kim</span>
+<span class="lg:hidden font-body-sm text-body-sm text-on-surface-variant">REC-2024-045</span>
+</div>
+</div>
+<div class="hidden lg:block font-body-sm text-body-sm text-on-surface-variant">REC-2024-045</div>
+<div class="flex">
+<span class="bg-tertiary-container text-on-tertiary font-label-sm text-[11px] px-2 py-0.5 rounded-full border border-tertiary uppercase">Near Duplicate</span>
+</div>
+<div class="hidden lg:flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+<span class="font-body-sm text-body-sm">08:21</span>
+</div>
+<div class="hidden lg:block font-body-sm text-body-sm text-on-surface-variant">Oct 22, 2024</div>
+<div class="flex justify-end">
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Recording Item 4 (Unique) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md lg:px-lg hover:shadow-sm transition-shadow">
+<div class="recording-card-grid">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-primary-fixed text-primary flex items-center justify-center font-bold">EL</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Emma Larson</span>
+<span class="lg:hidden font-body-sm text-body-sm text-on-surface-variant">REC-2024-051</span>
+</div>
+</div>
+<div class="hidden lg:block font-body-sm text-body-sm text-on-surface-variant">REC-2024-051</div>
+<div class="flex">
+<span class="bg-surface-container-high text-on-surface-variant font-label-sm text-[11px] px-2 py-0.5 rounded-full border border-outline-variant uppercase">Unique</span>
+</div>
+<div class="hidden lg:flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+<span class="font-body-sm text-body-sm">04:30</span>
+</div>
+<div class="hidden lg:block font-body-sm text-body-sm text-on-surface-variant">Oct 22, 2024</div>
+<div class="flex justify-end">
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Pagination -->
+<div class="mt-xl flex items-center justify-between border-t border-outline-variant pt-lg">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Showing 1-4 of 128 recordings</span>
+<div class="flex gap-xs">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant hover:bg-surface-container disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant bg-primary-container text-on-primary-container">1</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant hover:bg-surface-container">2</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant hover:bg-surface-container">3</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg border border-outline-variant hover:bg-surface-container">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Mobile Bottom Navigation -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-md pb-safe pt-2 bg-surface border-t border-outline-variant rounded-t-xl shadow-lg h-16">
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="library_music">library_music</span>
+<span class="font-label-sm text-label-sm">Library</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-2xl px-4 py-1 scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="mic_none">mic_none</span>
+<span class="font-label-sm text-label-sm">Record</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="folder">folder</span>
+<span class="font-label-sm text-label-sm">Folders</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-sm text-label-sm">Settings</span>
+</a>
+</nav>
+<!-- Visual Polish: Sublte Floating Waveform Background (Desktop) -->
+<div class="fixed bottom-8 right-8 pointer-events-none opacity-10 hidden lg:block">
+<svg fill="none" height="200" viewbox="0 0 400 200" width="400" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 100C20 90 40 110 60 100C80 90 100 110 120 100C140 90 160 110 180 100C200 90 220 110 240 100C260 90 280 110 300 100C320 90 340 110 360 100C380 90 400 110 400 100" stroke="#3525cd" stroke-linecap="round" stroke-width="2">
+<animate attributename="d" dur="5s" repeatcount="indefinite" values="
+                    M0 100C20 90 40 110 60 100C80 90 100 110 120 100C140 90 160 110 180 100C200 90 220 110 240 100C260 90 280 110 300 100C320 90 340 110 360 100C380 90 400 110 400 100;
+                    M0 100C20 110 40 90 60 100C80 110 100 90 120 100C140 110 160 90 180 100C200 110 220 90 240 100C260 110 280 90 300 100C320 110 340 90 360 100C380 110 400 90 400 100;
+                    M0 100C20 90 40 110 60 100C80 90 100 110 120 100C140 90 160 110 180 100C200 90 220 110 240 100C260 90 280 110 300 100C320 90 340 110 360 100C380 90 400 110 400 100
+                "></animate>
+</path>
+</svg>
+</div>
+</body></html>

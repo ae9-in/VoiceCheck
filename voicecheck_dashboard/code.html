@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VoiceCheck Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#dad7ff",
+                    "error": "#ba1a1a",
+                    "on-surface": "#1b1b24",
+                    "tertiary-container": "#a44100",
+                    "surface-container-highest": "#e4e1ee",
+                    "on-error": "#ffffff",
+                    "surface-bright": "#fcf8ff",
+                    "tertiary": "#7e3000",
+                    "on-secondary-container": "#60646f",
+                    "primary-fixed": "#e2dfff",
+                    "on-background": "#1b1b24",
+                    "on-error-container": "#93000a",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-low": "#f5f2ff",
+                    "background": "#fcf8ff",
+                    "outline": "#777587",
+                    "on-secondary-fixed-variant": "#424751",
+                    "surface-dim": "#dcd8e5",
+                    "surface-tint": "#4d44e3",
+                    "on-surface-variant": "#464555",
+                    "on-primary-fixed-variant": "#3323cc",
+                    "primary": "#3525cd",
+                    "surface-container": "#f0ecf9",
+                    "error-container": "#ffdad6",
+                    "tertiary-fixed": "#ffdbcc",
+                    "primary-container": "#4f46e5",
+                    "on-secondary-fixed": "#171c25",
+                    "surface": "#fcf8ff",
+                    "secondary-fixed": "#dee2ef",
+                    "secondary-fixed-dim": "#c2c6d3",
+                    "inverse-on-surface": "#f3effc",
+                    "on-primary": "#ffffff",
+                    "surface-container-high": "#eae6f4",
+                    "on-tertiary-fixed": "#351000",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed-variant": "#7b2f00",
+                    "surface-variant": "#e4e1ee",
+                    "primary-fixed-dim": "#c3c0ff",
+                    "inverse-surface": "#302f39",
+                    "inverse-primary": "#c3c0ff",
+                    "on-primary-fixed": "#0f0069",
+                    "outline-variant": "#c7c4d8",
+                    "on-tertiary-container": "#ffd2be",
+                    "secondary": "#5a5e69",
+                    "secondary-container": "#dee2ef",
+                    "tertiary-fixed-dim": "#ffb695"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "md": "16px",
+                    "xs": "4px",
+                    "lg": "24px",
+                    "base": "4px",
+                    "margin-mobile": "16px",
+                    "xl": "32px",
+                    "gutter": "20px",
+                    "sm": "8px",
+                    "margin-desktop": "32px",
+                    "2xl": "48px"
+            },
+            "fontFamily": {
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "display": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcf8ff; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .loading-bar { animation: progress 2s ease-in-out infinite; }
+        @keyframes progress { 0% { width: 0%; left: 0; } 50% { width: 70%; left: 15%; } 100% { width: 0%; left: 100%; } }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface">
+<!-- Sidebar (Desktop Only) -->
+<aside class="hidden lg:flex flex-col fixed left-0 top-0 h-full z-50 pt-lg bg-surface border-r border-outline-variant w-72">
+<div class="px-lg pb-xl">
+<h1 class="font-display text-display text-primary">VoiceCheck</h1>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-md bg-primary-container text-on-primary-container rounded-full px-md py-sm mx-sm transition-transform active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="mic">mic</span>
+<span class="font-label-md text-label-md">Recordings</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-highest rounded-full px-md py-sm mx-sm transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-label-md text-label-md">Analytics</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-highest rounded-full px-md py-sm mx-sm transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="folder">folder</span>
+<span class="font-label-md text-label-md">Folders</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-highest rounded-full px-md py-sm mx-sm transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+</aside>
+<!-- Top AppBar Shell -->
+<header class="fixed top-0 left-0 lg:left-72 right-0 z-40 bg-surface border-b border-outline-variant flex flex-col">
+<!-- Thin Loading Bar -->
+<div class="h-[2px] w-full bg-surface-container relative overflow-hidden">
+<div class="loading-bar absolute h-full bg-primary-container w-1/3"></div>
+</div>
+<div class="h-16 px-md lg:px-xl flex justify-between items-center">
+<div class="flex items-center gap-md">
+<button class="lg:hidden text-primary">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<div class="hidden sm:flex flex-col">
+<span class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Home &gt; Dashboard</span>
+<h2 class="font-headline-md text-headline-md text-primary font-bold">Dashboard</h2>
+</div>
+</div>
+<div class="flex items-center gap-md flex-1 max-w-xl mx-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline" data-icon="search">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-full py-2 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:border-transparent text-body-sm outline-none transition-all" placeholder="Search recordings..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="relative p-2 rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+<span class="absolute top-1 right-1 bg-error text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full">3</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-sm border-2 border-surface shadow-sm cursor-pointer hover:opacity-80 transition-opacity">
+                    AU
+                </div>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="pt-20 pb-24 lg:pb-8 lg:ml-72 px-md lg:px-xl min-h-screen">
+<!-- Hero Visual Section -->
+<div class="mb-lg rounded-xl overflow-hidden relative h-48 lg:h-64 shadow-sm border border-outline-variant">
+<img alt="Professional recording studio equipment" class="w-full h-full object-cover" data-alt="A cinematic, high-angle shot of a minimalist audio recording workspace. A professional matte black microphone stands on a clean white desk next to sleek metallic headphones. The lighting is soft and diffused, creating a professional corporate aesthetic with subtle indigo and soft gray tones that suggest technical precision and high-quality audio processing." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0FOMfaH2Zg59QF9zBJxZM5xr_FpNe8knFtCg6ltklhjyZODagCOZRyWfn1MPREUDZKNxtMwWojH7R56fSwvq954yEJ4okBRsm3VIyWRszs_ne9MOI2kynBQhdaZeOK9Wgvo9p-tFHk04fyEpod_WDa91SrCoWrV8y3jWUJIRFrjkpMDDIe-r9OUVdR_6Lnbr3zdKJzlBxjedCytgp12YwAgCz2hZsgwca1C5NNjVu2WUNPDExn8sRfiwKrOGAFkmTAopjmafV2Z76"/>
+<div class="absolute inset-0 bg-gradient-to-r from-primary/60 to-transparent flex items-center px-lg">
+<div class="text-white">
+<h3 class="font-headline-lg text-headline-lg mb-xs">Real-time Audio Verification</h3>
+<p class="font-body-md text-body-md opacity-90 max-w-md">Securely process, transcribe, and audit your organization's voice data with enterprise-grade precision.</p>
+</div>
+</div>
+</div>
+<!-- Metric Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-md mb-xl">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex flex-col gap-xs hover:shadow-sm transition-shadow">
+<span class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-tight">Total Recordings</span>
+<div class="flex items-baseline justify-between">
+<span class="font-display text-display text-primary">1,240</span>
+<span class="text-success text-sm font-bold flex items-center text-green-600">
+<span class="material-symbols-outlined text-sm" data-icon="arrow_upward">arrow_upward</span>
+                        12%
+                    </span>
+</div>
+<div class="h-1 w-full bg-surface-container rounded-full overflow-hidden mt-xs">
+<div class="h-full bg-primary w-[65%]"></div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex flex-col gap-xs hover:shadow-sm transition-shadow">
+<span class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-tight">Duplicate Rate</span>
+<div class="flex items-baseline justify-between">
+<span class="font-display text-display text-primary">4.2%</span>
+<span class="text-success text-sm font-bold flex items-center text-green-600">
+<span class="material-symbols-outlined text-sm" data-icon="arrow_downward">arrow_downward</span>
+                        2%
+                    </span>
+</div>
+<div class="h-1 w-full bg-surface-container rounded-full overflow-hidden mt-xs">
+<div class="h-full bg-error w-[4.2%]"></div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex flex-col gap-xs hover:shadow-sm transition-shadow">
+<span class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-tight">Transcripts Ready</span>
+<div class="flex items-baseline justify-between">
+<span class="font-display text-display text-primary">98%</span>
+<span class="text-success text-sm font-bold flex items-center text-green-600">
+<span class="material-symbols-outlined text-sm" data-icon="arrow_upward">arrow_upward</span>
+                        5%
+                    </span>
+</div>
+<div class="h-1 w-full bg-surface-container rounded-full overflow-hidden mt-xs">
+<div class="h-full bg-primary-container w-[98%]"></div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-lowest p-md rounded-xl border border-outline-variant flex flex-col gap-xs hover:shadow-sm transition-shadow">
+<span class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-tight">Active Candidates</span>
+<div class="flex items-baseline justify-between">
+<span class="font-display text-display text-primary">450</span>
+<span class="text-on-surface-variant text-sm font-bold flex items-center">
+<span class="material-symbols-outlined text-sm" data-icon="horizontal_rule">horizontal_rule</span>
+</span>
+</div>
+<div class="h-1 w-full bg-surface-container rounded-full overflow-hidden mt-xs">
+<div class="h-full bg-secondary-container w-[40%]"></div>
+</div>
+</div>
+</div>
+<!-- Recent Recordings List -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+<div class="px-md py-lg border-b border-outline-variant flex justify-between items-center bg-surface-container-low/30">
+<h3 class="font-headline-md text-headline-md text-on-surface font-bold">Recent Recordings</h3>
+<button class="text-primary font-label-md text-label-md flex items-center gap-xs hover:underline">
+                    View All <span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low/20">
+<tr class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+<th class="px-md py-4 font-bold">Recording ID</th>
+<th class="px-md py-4 font-bold">Candidate Name</th>
+<th class="px-md py-4 font-bold">Status</th>
+<th class="px-md py-4 font-bold">Upload Time</th>
+<th class="px-md py-4 font-bold"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-md py-4 font-mono text-sm text-primary">#VC-9821-A</td>
+<td class="px-md py-4 text-on-surface font-medium">Jordan Smith</td>
+<td class="px-md py-4">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-green-100 text-green-700 border border-green-200">Unique</span>
+</td>
+<td class="px-md py-4 text-on-surface-variant text-sm">2 mins ago</td>
+<td class="px-md py-4 text-right">
+<button class="material-symbols-outlined text-outline hover:text-primary transition-colors" data-icon="more_vert">more_vert</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-md py-4 font-mono text-sm text-primary">#VC-9820-B</td>
+<td class="px-md py-4 text-on-surface font-medium">Elena Rodriguez</td>
+<td class="px-md py-4">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-red-100 text-red-700 border border-red-200">Exact Duplicate</span>
+</td>
+<td class="px-md py-4 text-on-surface-variant text-sm">15 mins ago</td>
+<td class="px-md py-4 text-right">
+<button class="material-symbols-outlined text-outline hover:text-primary transition-colors" data-icon="more_vert">more_vert</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-md py-4 font-mono text-sm text-primary">#VC-9819-C</td>
+<td class="px-md py-4 text-on-surface font-medium">Marcus Chen</td>
+<td class="px-md py-4">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-700 border border-amber-200">Near Duplicate</span>
+</td>
+<td class="px-md py-4 text-on-surface-variant text-sm">45 mins ago</td>
+<td class="px-md py-4 text-right">
+<button class="material-symbols-outlined text-outline hover:text-primary transition-colors" data-icon="more_vert">more_vert</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-md py-4 font-mono text-sm text-primary">#VC-9818-D</td>
+<td class="px-md py-4 text-on-surface font-medium">Sarah Jenkins</td>
+<td class="px-md py-4">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-orange-100 text-orange-700 border border-orange-200">Repeated Content</span>
+</td>
+<td class="px-md py-4 text-on-surface-variant text-sm">1 hour ago</td>
+<td class="px-md py-4 text-right">
+<button class="material-symbols-outlined text-outline hover:text-primary transition-colors" data-icon="more_vert">more_vert</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-md py-4 font-mono text-sm text-primary">#VC-9817-E</td>
+<td class="px-md py-4 text-on-surface font-medium">Alex Rivera</td>
+<td class="px-md py-4">
+<span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-blue-100 text-blue-700 border border-blue-200">Processing</span>
+</td>
+<td class="px-md py-4 text-on-surface-variant text-sm">2 hours ago</td>
+<td class="px-md py-4 text-right">
+<button class="material-symbols-outlined text-outline hover:text-primary transition-colors" data-icon="more_vert">more_vert</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation (Mobile Only) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-md pb-safe pt-2 bg-surface border-t border-outline-variant">
+<button class="flex flex-col items-center justify-center text-on-surface-variant py-1">
+<span class="material-symbols-outlined" data-icon="library_music">library_music</span>
+<span class="font-label-sm text-label-sm-mobile">Library</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-2xl px-4 py-1 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined" data-icon="mic_none">mic_none</span>
+<span class="font-label-sm text-label-sm-mobile">Record</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant py-1">
+<span class="material-symbols-outlined" data-icon="folder">folder</span>
+<span class="font-label-sm text-label-sm-mobile">Folders</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant py-1">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-sm text-label-sm-mobile">Settings</span>
+</button>
+</nav>
+<!-- Script for simple interactions -->
+<script>
+        // Simple search focus animation or list interaction logic
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('scale-[1.01]');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('scale-[1.01]');
+        });
+    </script>
+</body></html>

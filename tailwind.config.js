@@ -1,0 +1,83 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,jsx,ts,tsx}",
+  ],
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "primary": "#3525cd",
+        "primary-container": "#4f46e5",
+        "on-primary": "#ffffff",
+        "on-primary-container": "#dad7ff",
+        "inverse-primary": "#c3c0ff",
+        "secondary": "#5a5e69",
+        "on-secondary": "#ffffff",
+        "secondary-container": "#dee2ef",
+        "on-secondary-container": "#60646f",
+        "tertiary": "#7e3000",
+        "on-tertiary": "#ffffff",
+        "tertiary-container": "#a44100",
+        "on-tertiary-container": "#ffd2be",
+        "error": "#ba1a1a",
+        "on-error": "#ffffff",
+        "error-container": "#ffdad6",
+        "on-error-container": "#93000a",
+        "background": "#fcf8ff",
+        "on-background": "#1b1b24",
+        "surface": "#fcf8ff",
+        "on-surface": "#1b1b24",
+        "surface-variant": "#e4e1ee",
+        "on-surface-variant": "#464555",
+        "outline": "#777587",
+        "outline-variant": "#c7c4d8",
+        "surface-container": "#f0ecf9",
+        "surface-container-low": "#f5f2ff",
+        "surface-container-lowest": "#ffffff",
+        "surface-container-high": "#eae6f4",
+        "surface-container-highest": "#e4e1ee",
+        "surface-dim": "#dcd8e5",
+        "surface-bright": "#fcf8ff",
+        "primary-fixed": "#e2dfff",
+        "primary-fixed-dim": "#c3c0ff",
+        "on-primary-fixed": "#0f0069",
+        "on-primary-fixed-variant": "#3323cc",
+        "secondary-fixed": "#dee2ef",
+        "secondary-fixed-dim": "#c2c6d3",
+        "on-secondary-fixed": "#171c25",
+        "on-secondary-fixed-variant": "#424751",
+        "tertiary-fixed": "#ffdbcc",
+        "tertiary-fixed-dim": "#ffb695",
+        "on-tertiary-fixed": "#351000",
+        "on-tertiary-fixed-variant": "#7b2f00"
+      },
+      borderRadius: {
+        "DEFAULT": "0.25rem",
+        "lg": "0.5rem",
+        "xl": "0.75rem",
+        "2xl": "1rem",
+        "3xl": "1.5rem",
+        "full": "9999px"
+      },
+      spacing: {
+        "base": "4px",
+        "xs": "4px",
+        "sm": "8px",
+        "md": "16px",
+        "lg": "24px",
+        "xl": "32px",
+        "2xl": "48px",
+        "gutter": "20px",
+        "margin-mobile": "16px",
+        "margin-desktop": "32px"
+      },
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+        display: ["Inter", "sans-serif"]
+      }
+    },
+  },
+  plugins: [],
+}

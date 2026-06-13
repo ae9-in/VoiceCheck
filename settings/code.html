@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VoiceCheck - Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#dad7ff",
+                        "error": "#ba1a1a",
+                        "on-surface": "#1b1b24",
+                        "tertiary-container": "#a44100",
+                        "surface-container-highest": "#e4e1ee",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#fcf8ff",
+                        "tertiary": "#7e3000",
+                        "on-secondary-container": "#60646f",
+                        "primary-fixed": "#e2dfff",
+                        "on-background": "#1b1b24",
+                        "on-error-container": "#93000a",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-low": "#f5f2ff",
+                        "background": "#fcf8ff",
+                        "outline": "#777587",
+                        "on-secondary-fixed-variant": "#424751",
+                        "surface-dim": "#dcd8e5",
+                        "surface-tint": "#4d44e3",
+                        "on-surface-variant": "#464555",
+                        "on-primary-fixed-variant": "#3323cc",
+                        "primary": "#3525cd",
+                        "surface-container": "#f0ecf9",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#ffdbcc",
+                        "primary-container": "#4f46e5",
+                        "on-secondary-fixed": "#171c25",
+                        "surface": "#fcf8ff",
+                        "secondary-fixed": "#dee2ef",
+                        "secondary-fixed-dim": "#c2c6d3",
+                        "inverse-on-surface": "#f3effc",
+                        "on-primary": "#ffffff",
+                        "surface-container-high": "#eae6f4",
+                        "on-tertiary-fixed": "#351000",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed-variant": "#7b2f00",
+                        "surface-variant": "#e4e1ee",
+                        "primary-fixed-dim": "#c3c0ff",
+                        "inverse-surface": "#302f39",
+                        "inverse-primary": "#c3c0ff",
+                        "on-primary-fixed": "#0f0069",
+                        "outline-variant": "#c7c4d8",
+                        "on-tertiary-container": "#ffd2be",
+                        "secondary": "#5a5e69",
+                        "secondary-container": "#dee2ef",
+                        "tertiary-fixed-dim": "#ffb695"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "base": "4px",
+                        "margin-mobile": "16px",
+                        "xl": "32px",
+                        "gutter": "20px",
+                        "sm": "8px",
+                        "margin-desktop": "32px",
+                        "2xl": "48px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-pill { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen">
+<!-- Desktop Navigation Drawer -->
+<aside class="hidden lg:flex flex-col fixed left-0 top-0 h-full z-50 pt-lg bg-surface border-r border-outline-variant w-72">
+<div class="px-xl mb-xl">
+<h1 class="font-display text-display text-primary">VoiceCheck</h1>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-highest rounded-full px-md py-sm mx-sm transition-colors" href="#">
+<span class="material-symbols-outlined">mic</span>
+<span class="font-label-md text-label-md">Recordings</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-highest rounded-full px-md py-sm mx-sm transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-md text-label-md">Analytics</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant hover:bg-surface-container-highest rounded-full px-md py-sm mx-sm transition-colors" href="#">
+<span class="material-symbols-outlined">folder</span>
+<span class="font-label-md text-label-md">Folders</span>
+</a>
+<a class="flex items-center gap-md bg-primary-container text-on-primary-container rounded-full px-md py-sm mx-sm scale-[0.98] transition-transform" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+</aside>
+<!-- Top App Bar (Shared Logic) -->
+<header class="fixed top-0 left-0 w-full z-40 flex justify-between items-center px-md h-16 bg-surface border-b border-outline-variant lg:pl-[288px]">
+<div class="flex items-center gap-md">
+<button class="lg:hidden p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<span class="text-headline-md font-headline-md font-bold text-primary">VoiceCheck</span>
+</div>
+<div class="flex items-center gap-md">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a corporate executive in a modern office setting. The person has a friendly but confident expression, with soft sunlight filtering through glass windows in the background. The lighting is bright and clean, matching a professional enterprise software aesthetic with a shallow depth of field." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbSz_d-9egOJkVfV-wKcjNWB3xl0wO4_R81sZd5kiifrIO0VVCuLMCM_BrMWoNkKGDXDqhTpkGSfG0STmxHv71jc_bMCwfic7dxu2yd6jkJ6KdNZPqi03IifvwHEQcVEBG9DyFTPRS9hzERmDXiP64-IeYz_4a5CYNlrGJ4r9ljtPgCZisP8Tu23-Ub3dN6k1-0Kovw516TV_FBbFdu8FT81WAxFrxqPEuT2_yxwdRrw_Z9pithD29UAu-pyaccK0VNjzk6aKuEqyh"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 pb-24 lg:pb-md lg:ml-72 px-md md:px-xl max-w-6xl mx-auto">
+<!-- Breadcrumbs & Header -->
+<div class="mb-xl">
+<nav class="flex items-center gap-xs text-on-surface-variant mb-xs">
+<span class="font-label-sm text-label-sm">Home</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="font-label-sm text-label-sm text-primary">Settings</span>
+</nav>
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Settings</h2>
+</div>
+<!-- Bento Grid Layout for Settings -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-lg">
+<!-- Profile Settings -->
+<section class="md:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl p-lg">
+<div class="flex items-center gap-md mb-lg">
+<span class="material-symbols-outlined text-primary">account_circle</span>
+<h3 class="font-headline-md text-headline-md">Profile Settings</h3>
+</div>
+<div class="space-y-md">
+<div class="flex flex-col md:flex-row md:items-center gap-lg py-md border-b border-outline-variant">
+<div class="relative w-20 h-20 group">
+<img class="w-full h-full rounded-full object-cover border-2 border-primary" data-alt="A close-up shot of a modern, clean digital avatar placeholder. The visual style is minimalist and high-end, featuring a subtle geometric pattern in soft indigo and lavender shades. The lighting is even and bright, emphasizing a professional corporate atmosphere and high-utility design language." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXYt1gGwslMLyryM6IuAZmCssUSmYEnbD9CBgzyO61vYqPZKLgtp7OYNmAqydpvXRloMCXOjyYQ9I3v5Q2gmwckqQ76pH4-yFhmIVswl94E69jSlDIIupPb8IgIy13GMQI-LSEGi-W9GuvfZGoM1OJ4-8IoapeptIhCVaHnFFPg07t3AOmMUGL9Tp2UHALbf1qZE2PjwofVeRArYXLHtHjcNJJYXdo1pUmmcdTG31yJoyGo6MZd4oxbnIbNodq8ekmJpY8Nt9HETcX"/>
+<button class="absolute bottom-0 right-0 bg-primary text-white p-1 rounded-full border-2 border-surface">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</div>
+<div class="flex-1 space-y-sm">
+<label class="block font-label-md text-label-md text-on-surface-variant">Display Name</label>
+<input class="w-full px-md py-sm bg-surface border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" type="text" value="Alexander Sterling"/>
+</div>
+</div>
+<div class="space-y-sm py-md border-b border-outline-variant">
+<label class="block font-label-md text-label-md text-on-surface-variant">Email Address</label>
+<input class="w-full px-md py-sm bg-surface border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all" type="email" value="a.sterling@voicecheck.ai"/>
+</div>
+</div>
+</section>
+<!-- Security Quick Action -->
+<section class="md:col-span-4 bg-primary-container text-on-primary-container border border-primary rounded-xl p-lg flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-md mb-md">
+<span class="material-symbols-outlined">shield</span>
+<h3 class="font-headline-md text-headline-md">Security</h3>
+</div>
+<p class="font-body-sm text-body-sm opacity-90">Keep your account secure by updating your credentials regularly.</p>
+</div>
+<button class="mt-lg w-full bg-surface text-primary font-label-md py-sm rounded-full hover:bg-surface-container-high transition-colors">
+                    Change Password
+                </button>
+</section>
+<!-- Audio Processing (Card) -->
+<section class="md:col-span-12 lg:col-span-7 bg-surface-container-lowest border border-outline-variant rounded-xl p-lg">
+<div class="flex items-center gap-md mb-lg">
+<span class="material-symbols-outlined text-primary">equalizer</span>
+<h3 class="font-headline-md text-headline-md">Audio Processing</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+<div class="space-y-sm">
+<label class="block font-label-md text-label-md text-on-surface-variant">Sample Rate (kHz)</label>
+<select class="w-full px-md py-sm bg-surface border border-outline-variant rounded-lg outline-none">
+<option>44.1 kHz</option>
+<option selected="">48.0 kHz</option>
+<option>96.0 kHz</option>
+</select>
+</div>
+<div class="space-y-sm">
+<label class="block font-label-md text-label-md text-on-surface-variant">Duplicate Sensitivity</label>
+<input class="w-full h-2 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary" type="range"/>
+<div class="flex justify-between text-[10px] text-on-surface-variant font-bold uppercase">
+<span>Low</span>
+<span>High</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Notification Preferences -->
+<section class="md:col-span-12 lg:col-span-5 bg-surface-container-lowest border border-outline-variant rounded-xl p-lg">
+<div class="flex items-center gap-md mb-lg">
+<span class="material-symbols-outlined text-primary">notifications</span>
+<h3 class="font-headline-md text-headline-md">Notifications</h3>
+</div>
+<div class="space-y-md">
+<label class="flex items-center justify-between cursor-pointer">
+<span class="font-body-md text-body-md text-on-surface">Email Summaries</span>
+<div class="relative inline-flex items-center">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+<label class="flex items-center justify-between cursor-pointer">
+<span class="font-body-md text-body-md text-on-surface">Desktop Alerts</span>
+<div class="relative inline-flex items-center">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</div>
+</label>
+</div>
+</section>
+<!-- Danger Zone -->
+<section class="md:col-span-12 mt-xl pt-lg border-t border-outline-variant">
+<button class="flex items-center gap-sm text-error font-label-md hover:bg-error-container/10 px-md py-sm rounded-full transition-colors ml-auto">
+<span class="material-symbols-outlined">logout</span>
+                    Logout
+                </button>
+</section>
+</div>
+</main>
+<!-- Mobile Bottom Navigation Shell -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-md pb-safe pt-2 bg-surface border-t border-outline-variant">
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">library_music</span>
+<span class="font-label-sm text-[10px]">Library</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">mic_none</span>
+<span class="font-label-sm text-[10px]">Record</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">folder</span>
+<span class="font-label-sm text-[10px]">Folders</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-2xl px-4 py-1 scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-sm text-[10px]">Settings</span>
+</a>
+</nav>
+<script>
+        // Simple Micro-interaction for inputs
+        document.querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('focus', () => {
+                el.parentElement.classList.add('scale-[1.01]');
+                el.parentElement.style.transition = 'transform 0.2s ease';
+            });
+            el.addEventListener('blur', () => {
+                el.parentElement.classList.remove('scale-[1.01]');
+            });
+        });
+
+        // Range slider background update
+        const range = document.querySelector('input[type="range"]');
+        if(range) {
+            range.addEventListener('input', (e) => {
+                const val = (e.target.value - e.target.min) / (e.target.max - e.target.min) * 100;
+                e.target.style.backgroundSize = val + '% 100%';
+            });
+        }
+    </script>
+</body></html>
