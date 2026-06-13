@@ -1,12 +1,15 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Filter, RefreshCw, Users, CalendarDays } from 'lucide-react';
 import { useRecordingStore } from '../store/useRecordingStore';
 import PageHeader from '../components/ui/PageHeader';
+import EmptyState from '../components/ui/EmptyState';
 import CandidateReportTab from '../components/reports/CandidateReportTab';
 import DayWiseReportTab from '../components/reports/DayWiseReportTab';
 import ExportButton from '../components/reports/ExportButton';
 
 export default function Reports() {
+  const navigate = useNavigate();
   const { recordings } = useRecordingStore();
   const [activeTab, setActiveTab] = useState('candidate');
   const [dateFrom, setDateFrom] = useState('');
@@ -91,7 +94,7 @@ export default function Reports() {
         c.unique++;
         c.uniqueDuration += r.duration;
       } else {
-        c.duplicateDuration += r.duration
+        c.duplicateDuration += r.duration;
         if (r.duplicateType === 'exact') c.exactDuplicate++;
         else if (r.duplicateType === 'near') c.nearDuplicate++;
         else if (r.duplicateType === 'repeated') c.repeatedContent++;
@@ -141,7 +144,7 @@ export default function Reports() {
       d.totalUploads++;
       d.totalDuration += r.duration;
       d.candidates.add(r.candidateId);
-      if (r.status === 'Unique') d.unique++;
+      if (r.status === 'Unique') d.unique++
       else {
         if (r.duplicateType === 'exact') d.exactDuplicate++;
         else if (r.duplicateType === 'near') d.nearDuplicate++;
@@ -165,6 +168,24 @@ export default function Reports() {
   const handleApply = () => {
     setAppliedRange({ from: dateFrom, to: dateTo });
   };
+
+  // If there are no recordings, show Empty State
+  if (recordings.length === 0) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
+        <PageHeader title="Reports" breadcrumb="Home > Reports" />
+        <div className="bg-white border border-gray-205 rounded-xl p-12 shadow-xs flex items-center justify-center min-h-[350px]">
+          <EmptyState
+            icon={CalendarDays}
+            title="No reports data available"
+            description="There are currently no recordings in the system. Upload audio recordings to generate day-wise and candidate-wise analytics."
+            actionText="Upload Recording"
+            onAction={() => navigate('/upload')}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
