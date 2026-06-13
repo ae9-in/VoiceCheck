@@ -15,7 +15,10 @@ export const useRecordingStore = create((set, get) => ({
   fetchRecordings: async () => {
     set({ isLoading: true, error: null });
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      if (apiUrl && !apiUrl.endsWith('/api') && !apiUrl.endsWith('/api/')) {
+        apiUrl = `${apiUrl.replace(/\/$/, '')}/api`;
+      }
       const res = await fetch(`${apiUrl}/recordings`);
       if (!res.ok) throw new Error('Server responded with an error');
       
@@ -32,7 +35,10 @@ export const useRecordingStore = create((set, get) => ({
   },
   
   addRecording: async (rec) => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    if (apiUrl && !apiUrl.endsWith('/api') && !apiUrl.endsWith('/api/')) {
+      apiUrl = `${apiUrl.replace(/\/$/, '')}/api`;
+    }
     try {
       const res = await fetch(`${apiUrl}/recordings`, {
         method: 'POST',
@@ -51,7 +57,10 @@ export const useRecordingStore = create((set, get) => ({
   },
   
   deleteRecording: async (recordingId) => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    if (apiUrl && !apiUrl.endsWith('/api') && !apiUrl.endsWith('/api/')) {
+      apiUrl = `${apiUrl.replace(/\/$/, '')}/api`;
+    }
     try {
       const res = await fetch(`${apiUrl}/recordings/${recordingId}`, {
         method: 'DELETE'

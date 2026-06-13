@@ -31,7 +31,10 @@ export const useAuthStore = create((set) => ({
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      if (apiUrl && !apiUrl.endsWith('/api') && !apiUrl.endsWith('/api/')) {
+        apiUrl = `${apiUrl.replace(/\/$/, '')}/api`;
+      }
       const res = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,7 +67,10 @@ export const useAuthStore = create((set) => ({
   signup: async (name, email, password) => {
     set({ isLoading: true, error: null });
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      if (apiUrl && !apiUrl.endsWith('/api') && !apiUrl.endsWith('/api/')) {
+        apiUrl = `${apiUrl.replace(/\/$/, '')}/api`;
+      }
       const res = await fetch(`${apiUrl}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
