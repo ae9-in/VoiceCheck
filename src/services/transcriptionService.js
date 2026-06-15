@@ -3,24 +3,40 @@ const TRANSCRIPTION_API_URL =
 
 /**
  * Checks if the transcription service is reachable.
- * @returns {Promise<{ status: 'online' | 'offline' | 'unknown', whisperModel?: string, 
- *                      embeddingModel?: string }>}
+ * Returns 3 states:
+ *   'online'  — service responded with 200 OK
+ *   'unknown' — network error (e.g. CORS/adblock blocked the request) OR
+ *               gateway error (502/503/504 = Render free-tier cold start).
+ *               We still attempt transcription in both cases.
+ *   'offline' — service explicitly returned a 4xx client error (truly down).
+ *
+ * @returns {Promise<{ status: 'online' | 'offline' | 'unknown', whisperModel?: string,
+ *                     embeddingModel?: string }>}
  */
 export async function checkTranscriptionHealth() {
   try {
     const res = await fetch(`${TRANSCRIPTION_API_URL}/status`, {
-      signal: AbortSignal.timeout(3000)
+      // 5 s timeout — gives Render free-tier a bit more time to respond during warm-up
+      signal: AbortSignal.timeout(5000)
     })
-    if (!res.ok) return { status: 'offline' }
-    const data = await res.json()
-    return { status: 'online', ...data }
-  } catch (err) {
-    if (err && (err.name === 'TypeError' || err instanceof TypeError)) {
+    if (res.ok) {
+      const data = await res.json()
+      return { status: 'online', ...data }
+    }
+    // 502 / 503 / 504  →  Render is cold-starting; treat as unknown so we still try
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
       return { status: 'unknown' }
     }
+    // Any definitive client-side 4xx → service is truly misconfigured / offline
     return { status: 'offline' }
+  } catch (err) {
+    // TypeError = network failure (adblock ERR_BLOCKED_BY_CLIENT, CORS preflight
+    // blocked before a response was received, or AbortError timeout).
+    // In all these cases we can't tell if the service is up, so use 'unknown'.
+    return { status: 'unknown' }
   }
 }
+
 
 /**
  * Sends an audio file for transcription + embedding generation.
