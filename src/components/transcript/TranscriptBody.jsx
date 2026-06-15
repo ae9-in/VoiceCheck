@@ -33,7 +33,7 @@ export default function TranscriptBody({ recording, matchedRecording }) {
 
   // Compute search match count
   const matchCount = useMemo(() => {
-    if (!searchTerm) return 0;
+    if (!searchTerm || !recording.transcriptText) return 0;
     const regex = new RegExp(escapeRegExp(searchTerm), 'gi');
     const matches = recording.transcriptText.match(regex);
     return matches ? matches.length : 0;
@@ -99,7 +99,8 @@ export default function TranscriptBody({ recording, matchedRecording }) {
 
   // Split transcript into sentences
   const sentences = useMemo(() => {
-    return recording.transcriptText
+    const text = recording.transcriptText || '';
+    return text
       .split(/(?<=[.!?])\s+/)
       .filter(s => s.trim().length > 0);
   }, [recording.transcriptText]);
@@ -187,14 +188,28 @@ export default function TranscriptBody({ recording, matchedRecording }) {
         fontSize === 'sm' ? 'text-sm' :
         fontSize === 'lg' ? 'text-lg' : 'text-base'
       }`}>
-        {sentences.map((sentence, i) => (
-          <p key={i} className="relative pl-8 group">
-            <span className="absolute left-0 text-[10px] text-gray-300 font-mono mt-1.5 group-hover:text-gray-400 transition-colors select-none font-bold">
-              {i + 1}
-            </span>
-            {renderSentence(sentence, i)}
+        {recording.transcriptStatus === 'skipped' ? (
+          <p className="text-gray-400 italic">
+            Transcription was not run for this recording (service unavailable at upload time)
           </p>
-        ))}
+        ) : recording.transcriptStatus === 'failed' ? (
+          <p className="text-amber-600 font-medium italic">
+            Transcription failed for this recording — audio may be silent, corrupted, or unsupported
+          </p>
+        ) : !recording.transcriptText || recording.transcriptText.trim() === '' ? (
+          <p className="text-gray-400 italic">
+            No transcript available
+          </p>
+        ) : (
+          sentences.map((sentence, i) => (
+            <p key={i} className="relative pl-8 group">
+              <span className="absolute left-0 text-[10px] text-gray-300 font-mono mt-1.5 group-hover:text-gray-400 transition-colors select-none font-bold">
+                {i + 1}
+              </span>
+              {renderSentence(sentence, i)}
+            </p>
+          ))
+        )}
       </div>
 
       {/* Footer bar */}

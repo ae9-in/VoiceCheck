@@ -134,6 +134,7 @@ export default function TranscriptView() {
         similarityScore,
         duplicateType,
         transcriptText: transcriptionResult.transcript,
+        transcriptStatus: 'completed',
         confidenceScore: transcriptionResult.confidence || 0.94,
         language: transcriptionResult.languageName || transcriptionResult.language || recording.language,
         transcriptProcessedAt: new Date().toISOString(),
@@ -270,7 +271,7 @@ export default function TranscriptView() {
         {/* Card 2 — Analysis Metadata */}
         <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs">
           <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4">Analysis Results</h3>
-          <ConfidenceBar score={recording.confidenceScore} />
+          <ConfidenceBar score={recording.transcriptStatus === 'completed' ? recording.confidenceScore : 0} />
 
           <div className="space-y-3 mt-4 text-xs font-semibold">
             <div className="flex items-center justify-between">
@@ -278,7 +279,11 @@ export default function TranscriptView() {
                 <AlignLeft size={12} className="opacity-80" />
                 Word count
               </span>
-              <span className="text-gray-700">{recording.transcriptText.split(/\s+/).length} words</span>
+              <span className="text-gray-700">
+                {recording.transcriptStatus === 'completed' 
+                  ? `${(recording.transcriptText || '').split(/\s+/).filter(Boolean).length} words` 
+                  : '—'}
+              </span>
             </div>
 
             <div className="flex items-center justify-between">
@@ -286,7 +291,11 @@ export default function TranscriptView() {
                 <Type size={12} className="opacity-80" />
                 Characters
               </span>
-              <span className="text-gray-700">{recording.transcriptText.length}</span>
+              <span className="text-gray-700">
+                {recording.transcriptStatus === 'completed' 
+                  ? (recording.transcriptText || '').length 
+                  : '—'}
+              </span>
             </div>
 
             <div className="flex items-center justify-between">
@@ -456,7 +465,9 @@ export default function TranscriptView() {
               <div>
                 <h2 className="text-base font-semibold text-gray-900 leading-none">Transcript</h2>
                 <p className="text-xs text-gray-400 font-medium mt-1">
-                  {recording.transcriptText.split(/\s+/).length} words · {formatDuration(recording.duration)}
+                  {recording.transcriptStatus === 'completed' 
+                    ? `${(recording.transcriptText || '').split(/\s+/).filter(Boolean).length} words` 
+                    : '—'} · {formatDuration(recording.duration)}
                 </p>
               </div>
             </div>

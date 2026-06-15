@@ -43,6 +43,7 @@ router.get('/', async (req, res) => {
         fileHash: rec.file_hash,
         audioFingerprint: rec.audio_fingerprint,
         status: rec.status,
+        transcriptStatus: rec.transcript_status || 'skipped',
         cloudinaryUrl: rec.cloudinary_url || null,
         cloudinaryPublicId: rec.cloudinary_public_id || null,
         transcriptEmbedding: rec.transcript_embedding || null,
@@ -75,6 +76,7 @@ router.post('/', async (req, res) => {
       fileHash,
       audioFingerprint,
       status,
+      transcriptStatus,
       matchedRecordingId,
       similarityScore,
       duplicateType,
@@ -97,6 +99,7 @@ router.post('/', async (req, res) => {
       file_hash: fileHash,
       audio_fingerprint: audioFingerprint,
       status: status,
+      transcript_status: transcriptStatus || 'skipped',
       cloudinary_url: cloudinaryUrl,
       cloudinary_public_id: cloudinaryPublicId,
       transcript_embedding: transcriptEmbedding
@@ -124,6 +127,7 @@ router.post('/', async (req, res) => {
 
     res.status(201).json(req.body);
   } catch (error) {
+    console.error('Error saving new recording:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -160,7 +164,8 @@ router.put('/:recordingId', async (req, res) => {
       confidenceScore,
       language,
       transcriptProcessedAt,
-      transcriptEmbedding
+      transcriptEmbedding,
+      transcriptStatus
     } = req.body;
 
     // 1. Update Recording status and embedding
@@ -171,6 +176,7 @@ router.put('/:recordingId', async (req, res) => {
     
     if (status !== undefined) recording.status = status;
     if (transcriptEmbedding !== undefined) recording.transcript_embedding = transcriptEmbedding;
+    if (transcriptStatus !== undefined) recording.transcript_status = transcriptStatus;
     await recording.save();
 
     // 2. Update Transcript details
@@ -199,6 +205,7 @@ router.put('/:recordingId', async (req, res) => {
 
     res.json({ message: 'Recording successfully updated', recordingId: recId });
   } catch (error) {
+    console.error(`Error updating recording ${req.params.recordingId}:`, error);
     res.status(400).json({ error: error.message });
   }
 });

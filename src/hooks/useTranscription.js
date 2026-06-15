@@ -20,7 +20,7 @@ export function useTranscription() {
   // Check service health once on mount
   useEffect(() => {
     checkTranscriptionHealth().then(result => 
-      setServiceOnline(result.online)
+      setServiceOnline(result.status)
     )
   }, [])
 

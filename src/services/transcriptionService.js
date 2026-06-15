@@ -3,19 +3,22 @@ const TRANSCRIPTION_API_URL =
 
 /**
  * Checks if the transcription service is reachable.
- * @returns {Promise<{ online: boolean, whisperModel?: string, 
+ * @returns {Promise<{ status: 'online' | 'offline' | 'unknown', whisperModel?: string, 
  *                      embeddingModel?: string }>}
  */
 export async function checkTranscriptionHealth() {
   try {
-    const res = await fetch(`${TRANSCRIPTION_API_URL}/health`, {
+    const res = await fetch(`${TRANSCRIPTION_API_URL}/status`, {
       signal: AbortSignal.timeout(3000)
     })
-    if (!res.ok) return { online: false }
+    if (!res.ok) return { status: 'offline' }
     const data = await res.json()
-    return { online: true, ...data }
-  } catch {
-    return { online: false }
+    return { status: 'online', ...data }
+  } catch (err) {
+    if (err && (err.name === 'TypeError' || err instanceof TypeError)) {
+      return { status: 'unknown' }
+    }
+    return { status: 'offline' }
   }
 }
 

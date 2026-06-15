@@ -71,8 +71,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/health", response_model=HealthResponse)
-async def health():
+@app.get("/status", response_model=HealthResponse)
+async def status():
     # Return ok even if they are not loaded yet to pass Render's startup checks
     return HealthResponse(
         status="ok",

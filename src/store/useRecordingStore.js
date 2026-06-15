@@ -56,7 +56,8 @@ export const useRecordingStore = create((set, get) => ({
         ...rec,
         cloudinaryUrl: rec.cloudinaryUrl || `https://res.cloudinary.com/demo/video/upload/voicecheck/recordings/mock-${rec.recordingId}.mp3`,
         cloudinaryPublicId: rec.cloudinaryPublicId || `voicecheck/recordings/mock-${rec.recordingId}`,
-        transcriptEmbedding: rec.transcriptEmbedding || generateMockEmbedding(rec.recordingId)
+        transcriptEmbedding: rec.transcriptEmbedding || generateMockEmbedding(rec.recordingId),
+        transcriptStatus: rec.transcriptStatus || (rec.transcriptText ? 'completed' : 'skipped')
       }));
       set({ recordings: mapped, isLoading: false });
     } catch (err) {
@@ -78,6 +79,9 @@ export const useRecordingStore = create((set, get) => ({
       ...rec,
       transcriptEmbedding: rec.transcriptEmbedding || generateMockEmbedding(rec.recordingId)
     };
+
+    console.error('addRecording: outgoing payload to backend:', JSON.stringify(recWithEmbedding, null, 2));
+
     try {
       const res = await fetch(`${apiUrl}/recordings`, {
         method: 'POST',
@@ -85,18 +89,28 @@ export const useRecordingStore = create((set, get) => ({
         body: JSON.stringify(recWithEmbedding)
       });
       
-      if (!res.ok) throw new Error('Failed to save recording to database');
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        console.error('Backend validation error (full):', JSON.stringify(errorBody, null, 2));
+        console.error('Request URL was:', res.url);
+        console.error('Request method was:', 'POST');
+        const err = new Error(`Failed to save recording to database (Status ${res.status})`);
+        err.responseBody = errorBody;
+        throw err;
+      }
+      
       const saved = await res.json();
       const mappedSaved = {
         ...saved,
         cloudinaryUrl: saved.cloudinaryUrl || recWithEmbedding.cloudinaryUrl,
         cloudinaryPublicId: saved.cloudinaryPublicId || recWithEmbedding.cloudinaryPublicId,
-        transcriptEmbedding: saved.transcriptEmbedding || recWithEmbedding.transcriptEmbedding
+        transcriptEmbedding: saved.transcriptEmbedding || recWithEmbedding.transcriptEmbedding,
+        transcriptStatus: saved.transcriptStatus || recWithEmbedding.transcriptStatus || 'skipped'
       };
       
       set((state) => ({ recordings: [mappedSaved, ...state.recordings] }));
     } catch (err) {
-      console.error("Offline: adding recording only to local state.", err.message);
+      console.error("Offline: adding recording only to local state.", err.message, err.responseBody || null);
       set((state) => ({ 
         recordings: [{
           ...recWithEmbedding,
@@ -137,17 +151,27 @@ export const useRecordingStore = create((set, get) => ({
     if (apiUrl && !apiUrl.endsWith('/api') && !apiUrl.endsWith('/api/')) {
       apiUrl = `${apiUrl.replace(/\/$/, '')}/api`;
     }
+
+    if (import.meta.env.DEV) {
+      console.log(`updateRecording: outgoing payload for ${recordingId}:`, updatedFields);
+    }
+
     try {
       const res = await fetch(`${apiUrl}/recordings/${recordingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedFields)
       });
-      if (!res.ok) throw new Error('Failed to update recording in database');
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => null);
+        const err = new Error(`Failed to update recording in database (Status ${res.status})`);
+        err.responseBody = errorBody;
+        throw err;
+      }
       
       await get().fetchRecordings();
     } catch (err) {
-      console.error("Offline: updating recording only in local state.", err.message);
+      console.error("Offline: updating recording only in local state.", err.message, err.responseBody || null);
       set((state) => ({
         recordings: state.recordings.map(r => 
           r.recordingId === recordingId ? { ...r, ...updatedFields } : r

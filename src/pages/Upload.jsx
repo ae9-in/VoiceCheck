@@ -254,16 +254,18 @@ export default function UploadRecording() {
       let confidenceScore = 0.94;
       let transcriptEmbedding = null;
       let detectedLanguage = formData.language;
+      let transcriptStatus = 'skipped';
 
       if (exactMatch) {
         status = 'Exact Duplicate';
         matchedRecordingId = exactMatch.recordingId;
         similarityScore = 1.0;
         duplicateType = 'exact';
-        transcriptText = exactMatch.transcriptText || `This is an exact duplicate of the recording ${exactMatch.recordingId}.`;
+        transcriptText = exactMatch.transcriptText || '';
         confidenceScore = exactMatch.confidenceScore || 0.95;
         transcriptEmbedding = exactMatch.transcriptEmbedding || null;
         detectedLanguage = exactMatch.language || formData.language;
+        transcriptStatus = exactMatch.transcriptStatus || 'completed';
         
         setStepStatus(prev => ({ 
           ...prev, 
@@ -286,16 +288,19 @@ export default function UploadRecording() {
         setProgress(50);
 
         // Stage 3: Generating transcript
-        if (serviceOnline) {
+        const shouldAttemptTranscription = (serviceOnline === 'online' || serviceOnline === 'unknown');
+        if (shouldAttemptTranscription) {
           setStepStatus(prev => ({ ...prev, transcript: 'active' }));
           try {
             const transcriptionData = await runTranscription(selectedFile);
             if (!transcriptionData || !transcriptionData.transcript || !transcriptionData.transcript.trim()) {
-              status = 'Processing Failed';
+              transcriptStatus = 'failed';
               transcriptText = '';
               transcriptEmbedding = null;
+              confidenceScore = 0;
               setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'skipped' }));
             } else {
+              transcriptStatus = 'completed';
               transcriptText = transcriptionData.transcript;
               transcriptEmbedding = transcriptionData.embedding || null;
               confidenceScore = transcriptionData.confidence || 0.94;
@@ -303,23 +308,26 @@ export default function UploadRecording() {
               setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'active' }));
             }
           } catch (err) {
-            console.error("Transcription service call failed:", err);
-            status = 'Processing Failed';
+            console.error("Transcription service call failed, falling back to skipped behavior:", err);
+            transcriptStatus = 'skipped';
             transcriptText = '';
             transcriptEmbedding = null;
-            setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'skipped' }));
+            confidenceScore = 0;
+            setStepStatus(prev => ({ ...prev, transcript: 'skipped', similarity: 'skipped' }));
           }
         } else {
           // Offline / graceful degradation
+          transcriptStatus = 'skipped';
           transcriptText = '';
           transcriptEmbedding = null;
+          confidenceScore = 0;
           setStepStatus(prev => ({ ...prev, transcript: 'skipped', similarity: 'skipped' }));
         }
 
         setProgress(75);
 
         // Stage 4: Running similarity analysis
-        if (status !== 'Processing Failed') {
+        if (status !== 'Processing Failed' && transcriptStatus === 'completed') {
           // Audio fingerprinting (Near duplicate check) is still mocked
           const nameLowerCheck = formData.candidateName.toLowerCase();
           if (nameLowerCheck.includes('near') || nameLowerCheck.includes('michael')) {
@@ -330,7 +338,7 @@ export default function UploadRecording() {
           }
 
           // If transcript is available and not already a duplicate, run cosine similarity check
-          if (serviceOnline && transcriptEmbedding && status !== 'Exact Duplicate' && status !== 'Near Duplicate') {
+          if (transcriptEmbedding && status !== 'Exact Duplicate' && status !== 'Near Duplicate') {
             const { match, score } = findMostSimilarTranscript(transcriptEmbedding, recordings);
             if (match) {
               status = 'Repeated Content';
@@ -349,7 +357,15 @@ export default function UploadRecording() {
       }
 
       // Compile recording record
-      const nextId = recordings.length + 1;
+      const maxNum = recordings
+        .map(r => {
+          if (!r.recordingId) return 0;
+          const parts = r.recordingId.split('-');
+          const num = parseInt(parts[parts.length - 1], 10);
+          return isNaN(num) ? 0 : num;
+        })
+        .reduce((max, n) => Math.max(max, n), 0);
+      const nextId = maxNum + 1;
       const recordingId = `REC-2024-${nextId.toString().padStart(4, '0')}`;
 
       const finalResult = {
@@ -358,7 +374,7 @@ export default function UploadRecording() {
         matchedRecordingId,
         similarityScore,
         duplicateType,
-        confidenceScore,
+        confidenceScore: transcriptStatus === 'completed' ? confidenceScore : 0,
         transcriptPreview: transcriptText || 'Transcription skipped/failed.'
       };
 
@@ -375,7 +391,8 @@ export default function UploadRecording() {
         matchedRecordingId: finalResult.matchedRecordingId,
         similarityScore: finalResult.similarityScore,
         duplicateType: finalResult.duplicateType,
-        transcriptText: finalResult.transcriptPreview,
+        transcriptText: transcriptText || '',
+        transcriptStatus: transcriptStatus,
         confidenceScore: finalResult.confidenceScore,
         language: detectedLanguage,
         transcriptProcessedAt: new Date().toISOString(),
@@ -489,7 +506,7 @@ export default function UploadRecording() {
             <Loader2 size={14} className="animate-spin text-gray-400" />
             <span className="font-medium">Checking transcription service status...</span>
           </div>
-        ) : serviceOnline ? (
+        ) : serviceOnline === 'online' ? (
           <div className="bg-emerald-50 border border-emerald-250 text-emerald-850 rounded-xl p-3 px-4 text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-250">
             <div className="flex items-center gap-2.5">
               <div className="relative flex h-2 w-2">
@@ -500,6 +517,11 @@ export default function UploadRecording() {
                 <strong className="font-semibold text-emerald-900">Transcription Service Online:</strong> Speech-to-text and multilingual embedding similarity analysis are active.
               </span>
             </div>
+          </div>
+        ) : serviceOnline === 'unknown' ? (
+          <div className="bg-gray-50 border border-gray-200 text-gray-650 rounded-xl p-3 px-4 text-xs flex items-center gap-2.5 shadow-sm animate-in fade-in duration-250">
+            <Loader2 size={14} className="animate-spin text-gray-400" />
+            <span className="font-medium">Checking transcription service...</span>
           </div>
         ) : (
           <div className="bg-amber-55 bg-amber-50 border border-amber-250 text-amber-850 rounded-xl p-3 px-4 text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-250">
