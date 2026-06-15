@@ -75,18 +75,18 @@ export const useRecordingStore = create((set, get) => ({
     if (apiUrl && !apiUrl.endsWith('/api') && !apiUrl.endsWith('/api/')) {
       apiUrl = `${apiUrl.replace(/\/$/, '')}/api`;
     }
-    const recWithEmbedding = {
-      ...rec,
-      transcriptEmbedding: rec.transcriptEmbedding || generateMockEmbedding(rec.recordingId)
-    };
+    // Do NOT inject a mock embedding for real uploads.
+    // Only mock recordings (pre-seeded data) get generated embeddings via fetchRecordings.
+    // For real uploads, a null embedding means transcription was skipped/failed — keep it null.
+    const recToSend = { ...rec };
 
-    console.error('addRecording: outgoing payload to backend:', JSON.stringify(recWithEmbedding, null, 2));
+    console.error('addRecording: outgoing payload to backend:', JSON.stringify(recToSend, null, 2));
 
     try {
       const res = await fetch(`${apiUrl}/recordings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(recWithEmbedding)
+        body: JSON.stringify(recToSend)
       });
       
       if (!res.ok) {
@@ -102,10 +102,10 @@ export const useRecordingStore = create((set, get) => ({
       const saved = await res.json();
       const mappedSaved = {
         ...saved,
-        cloudinaryUrl: saved.cloudinaryUrl || recWithEmbedding.cloudinaryUrl,
-        cloudinaryPublicId: saved.cloudinaryPublicId || recWithEmbedding.cloudinaryPublicId,
-        transcriptEmbedding: saved.transcriptEmbedding || recWithEmbedding.transcriptEmbedding,
-        transcriptStatus: saved.transcriptStatus || recWithEmbedding.transcriptStatus || 'skipped'
+        cloudinaryUrl: saved.cloudinaryUrl || recToSend.cloudinaryUrl,
+        cloudinaryPublicId: saved.cloudinaryPublicId || recToSend.cloudinaryPublicId,
+        transcriptEmbedding: saved.transcriptEmbedding ?? recToSend.transcriptEmbedding,
+        transcriptStatus: saved.transcriptStatus || recToSend.transcriptStatus || 'skipped'
       };
       
       set((state) => ({ recordings: [mappedSaved, ...state.recordings] }));
@@ -113,9 +113,9 @@ export const useRecordingStore = create((set, get) => ({
       console.error("Offline: adding recording only to local state.", err.message, err.responseBody || null);
       set((state) => ({ 
         recordings: [{
-          ...recWithEmbedding,
-          cloudinaryUrl: recWithEmbedding.cloudinaryUrl,
-          cloudinaryPublicId: recWithEmbedding.cloudinaryPublicId,
+          ...recToSend,
+          cloudinaryUrl: recToSend.cloudinaryUrl,
+          cloudinaryPublicId: recToSend.cloudinaryPublicId,
         }, ...state.recordings] 
       }));
     }

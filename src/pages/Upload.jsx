@@ -261,19 +261,58 @@ export default function UploadRecording() {
         matchedRecordingId = exactMatch.recordingId;
         similarityScore = 1.0;
         duplicateType = 'exact';
-        transcriptText = exactMatch.transcriptText || '';
-        confidenceScore = exactMatch.confidenceScore || 0.95;
-        transcriptEmbedding = exactMatch.transcriptEmbedding || null;
         detectedLanguage = exactMatch.language || formData.language;
-        transcriptStatus = exactMatch.transcriptStatus || 'completed';
-        
-        setStepStatus(prev => ({ 
-          ...prev, 
-          duplicate: 'done', 
-          transcript: 'done', 
-          similarity: 'done' 
-        }));
-        setProgress(100);
+
+        // Only inherit transcript data if the matched recording was successfully transcribed.
+        // If it was skipped/failed, try transcribing fresh (service might be available now).
+        const matchHasTranscript = exactMatch.transcriptStatus === 'completed' && exactMatch.transcriptText;
+        if (matchHasTranscript) {
+          transcriptText = exactMatch.transcriptText;
+          confidenceScore = exactMatch.confidenceScore || 0.95;
+          transcriptEmbedding = exactMatch.transcriptEmbedding || null;
+          transcriptStatus = 'completed';
+          setStepStatus(prev => ({ ...prev, duplicate: 'done', transcript: 'done', similarity: 'done' }));
+          setProgress(100);
+        } else {
+          // Matched recording had no transcript — attempt fresh transcription
+          setStepStatus(prev => ({ ...prev, duplicate: 'done' }));
+          setProgress(50);
+          const shouldAttemptTranscription = (serviceOnline === 'online' || serviceOnline === 'unknown');
+          if (shouldAttemptTranscription) {
+            setStepStatus(prev => ({ ...prev, transcript: 'active' }));
+            try {
+              const transcriptionData = await runTranscription(selectedFile);
+              if (!transcriptionData || !transcriptionData.transcript || !transcriptionData.transcript.trim()) {
+                transcriptStatus = 'failed';
+                transcriptText = '';
+                transcriptEmbedding = null;
+                confidenceScore = 0;
+                setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'skipped' }));
+              } else {
+                transcriptStatus = 'completed';
+                transcriptText = transcriptionData.transcript;
+                transcriptEmbedding = transcriptionData.embedding || null;
+                confidenceScore = transcriptionData.confidence || 0.94;
+                detectedLanguage = transcriptionData.languageName || transcriptionData.language || detectedLanguage;
+                setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'done' }));
+              }
+            } catch (err) {
+              console.error('Transcription failed for exact match re-attempt:', err);
+              transcriptStatus = 'skipped';
+              transcriptText = '';
+              transcriptEmbedding = null;
+              confidenceScore = 0;
+              setStepStatus(prev => ({ ...prev, transcript: 'skipped', similarity: 'skipped' }));
+            }
+          } else {
+            transcriptStatus = 'skipped';
+            transcriptText = '';
+            transcriptEmbedding = null;
+            confidenceScore = 0;
+            setStepStatus(prev => ({ ...prev, transcript: 'skipped', similarity: 'skipped' }));
+          }
+          setProgress(100);
+        }
       } else {
         // Mock triggers checking if name contains 'exact' or 'sarah'
         const nameLower = formData.candidateName.toLowerCase();
@@ -398,7 +437,8 @@ export default function UploadRecording() {
         transcriptProcessedAt: new Date().toISOString(),
         cloudinaryUrl: uploadRes.url,
         cloudinaryPublicId: uploadRes.publicId,
-        transcriptEmbedding: transcriptEmbedding
+        // Guardrail: embedding must always be null when transcription wasn't completed
+        transcriptEmbedding: transcriptStatus === 'completed' ? transcriptEmbedding : null
       };
 
       // Add to store and save in DB
