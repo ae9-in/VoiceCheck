@@ -12,8 +12,34 @@ dotenv.config();
 const app = express();
 const PORT = process.env.BACKEND_PORT || 8000;
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB, then run startup migrations
+connectDB().then(async () => {
+  // Drop any legacy camelCase indexes left over from old schema versions.
+  // These stale unique indexes cause E11000 duplicate key errors because the
+  // field they index (e.g. "recordingId") no longer exists in the schema,
+  // so every document gets null stored there → collides on the 2nd insert.
+  const LEGACY_INDEXES_TO_DROP = [
+    { collection: 'recordings',       index: 'recordingId_1' },
+    { collection: 'recordings',       index: 'candidateId_1' },
+    { collection: 'transcripts',      index: 'recordingId_1' },
+    { collection: 'duplicatemappings',index: 'recordingId_1' },
+  ];
+
+  for (const { collection, index } of LEGACY_INDEXES_TO_DROP) {
+    try {
+      await mongoose.connection.collection(collection).dropIndex(index);
+      console.log(`Migration: dropped legacy index "${index}" from "${collection}"`);
+    } catch (err) {
+      if (err.codeName === 'IndexNotFound' || err.code === 27) {
+        // Index doesn't exist — nothing to do
+      } else {
+        console.warn(`Migration warning (${collection}/${index}):`, err.message);
+      }
+    }
+  }
+}).catch(err => {
+  console.error('DB connection or migration failed:', err.message);
+});
 
 // Middlewares
 app.use(cors({
