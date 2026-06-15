@@ -1,6 +1,7 @@
 import os
 import time
 import tempfile
+import gc
 import numpy as np
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -33,21 +34,25 @@ LANGUAGE_NAMES = {
     "kn": "Kannada",
 }
 
+def get_whisper_model():
+    if "whisper" not in models:
+        model_size = os.getenv("WHISPER_MODEL_SIZE", "tiny")
+        device = os.getenv("WHISPER_DEVICE", "cpu")
+        compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
+        print(f"Lazy-loading Whisper model '{model_size}' on '{device}' with compute type '{compute_type}'...")
+        models["whisper"] = WhisperModel(model_size, device=device, compute_type=compute_type)
+    return models["whisper"]
+
+def get_embedding_model():
+    if "embedding" not in models:
+        embedding_model_name = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+        print(f"Lazy-loading Embedding model '{embedding_model_name}'...")
+        models["embedding"] = SentenceTransformer(embedding_model_name)
+    return models["embedding"]
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Load Whisper model
-    model_size = os.getenv("WHISPER_MODEL_SIZE", "small")
-    device = os.getenv("WHISPER_DEVICE", "cpu")
-    compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
-    
-    print(f"Loading Whisper model '{model_size}' on '{device}' with compute type '{compute_type}'...")
-    models["whisper"] = WhisperModel(model_size, device=device, compute_type=compute_type)
-    
-    # Load SentenceTransformer model
-    embedding_model_name = os.getenv("EMBEDDING_MODEL", "sentence-transformers/LaBSE")
-    print(f"Loading Embedding model '{embedding_model_name}'...")
-    models["embedding"] = SentenceTransformer(embedding_model_name)
-    
+    print("FastAPI startup: Models will be loaded lazily on demand.")
     yield
     # Shutdown: Clear models
     models.clear()
@@ -68,12 +73,11 @@ app.add_middleware(
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
-    if "whisper" not in models or "embedding" not in models:
-        raise HTTPException(status_code=503, detail="Models not loaded yet")
+    # Return ok even if they are not loaded yet to pass Render's startup checks
     return HealthResponse(
         status="ok",
-        whisperModel=os.getenv("WHISPER_MODEL_SIZE", "small"),
-        embeddingModel=os.getenv("EMBEDDING_MODEL", "sentence-transformers/LaBSE")
+        whisperModel=os.getenv("WHISPER_MODEL_SIZE", "tiny"),
+        embeddingModel=os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     )
 
 @app.post("/transcribe", response_model=TranscriptionResponse)
@@ -98,9 +102,7 @@ async def transcribe(
         temp_file.write(content)
         
     try:
-        whisper_model = models.get("whisper")
-        if not whisper_model:
-            raise HTTPException(status_code=503, detail="Whisper model not loaded")
+        whisper_model = get_whisper_model()
             
         whisper_lang = None
         if language:
@@ -189,6 +191,7 @@ async def transcribe(
                 os.remove(temp_path)
             except Exception as e:
                 print(f"Error removing temp file {temp_path}: {e}")
+        gc.collect()
 
 @app.post("/embed", response_model=EmbeddingResponse)
 async def embed(body: dict):
@@ -196,17 +199,16 @@ async def embed(body: dict):
     if not text:
         raise HTTPException(status_code=400, detail="Text cannot be empty")
         
-    embedding_model = models.get("embedding")
-    if not embedding_model:
-        raise HTTPException(status_code=503, detail="Embedding model not loaded")
-        
+    embedding_model = get_embedding_model()
     embedding = embedding_model.encode(text, normalize_embeddings=True)
     
-    return EmbeddingResponse(
+    response = EmbeddingResponse(
         embedding=embedding.tolist(),
         dimensions=len(embedding),
-        model=os.getenv("EMBEDDING_MODEL", "sentence-transformers/LaBSE")
+        model=os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     )
+    gc.collect()
+    return response
 
 @app.post("/similarity", response_model=SimilarityResponse)
 async def similarity(request: SimilarityRequest):
@@ -216,10 +218,7 @@ async def similarity(request: SimilarityRequest):
     if not textA or not textB:
         raise HTTPException(status_code=400, detail="Texts cannot be empty")
         
-    embedding_model = models.get("embedding")
-    if not embedding_model:
-        raise HTTPException(status_code=503, detail="Embedding model not loaded")
-        
+    embedding_model = get_embedding_model()
     embeddings = embedding_model.encode([textA, textB], normalize_embeddings=True)
     
     # cosine similarity is the dot product of the unit-length vectors
@@ -233,10 +232,12 @@ async def similarity(request: SimilarityRequest):
         
     is_repeated = score > threshold
     
-    return SimilarityResponse(
+    response = SimilarityResponse(
         similarityScore=round(score, 4),
         isRepeatedContent=is_repeated
     )
+    gc.collect()
+    return response
 
 @app.post("/process")
 async def process(
@@ -248,12 +249,11 @@ async def process(
     
     embedding_list = None
     if trans_response.transcript:
-        embedding_model = models.get("embedding")
-        if not embedding_model:
-            raise HTTPException(status_code=503, detail="Embedding model not loaded")
+        embedding_model = get_embedding_model()
         embedding = embedding_model.encode(trans_response.transcript, normalize_embeddings=True)
         embedding_list = embedding.tolist()
         
     response_data = trans_response.model_dump()
     response_data["embedding"] = embedding_list
+    gc.collect()
     return response_data

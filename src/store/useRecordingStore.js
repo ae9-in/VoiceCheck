@@ -24,7 +24,7 @@ export function generateMockEmbedding(recordingId) {
   }
 
   const rand = createSeededRandom(recordingId);
-  const vec = Array.from({ length: 768 }, () => rand() * 2 - 1);
+  const vec = Array.from({ length: 384 }, () => rand() * 2 - 1);
   const mag = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
   return vec.map(v => v / (mag || 1));
 }
