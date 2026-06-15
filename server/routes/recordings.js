@@ -43,6 +43,9 @@ router.get('/', async (req, res) => {
         fileHash: rec.file_hash,
         audioFingerprint: rec.audio_fingerprint,
         status: rec.status,
+        cloudinaryUrl: rec.cloudinary_url || null,
+        cloudinaryPublicId: rec.cloudinary_public_id || null,
+        transcriptEmbedding: rec.transcript_embedding || null,
         matchedRecordingId: dupObj.matched_recording_id || null,
         similarityScore: dupObj.similarity_score || null,
         duplicateType: dupObj.duplicate_type || null,
@@ -78,7 +81,10 @@ router.post('/', async (req, res) => {
       transcriptText,
       confidenceScore,
       language,
-      transcriptProcessedAt
+      transcriptProcessedAt,
+      cloudinaryUrl,
+      cloudinaryPublicId,
+      transcriptEmbedding
     } = req.body;
 
     const newRecording = new Recording({
@@ -90,7 +96,10 @@ router.post('/', async (req, res) => {
       file_size: fileSize,
       file_hash: fileHash,
       audio_fingerprint: audioFingerprint,
-      status: status
+      status: status,
+      cloudinary_url: cloudinaryUrl,
+      cloudinary_public_id: cloudinaryPublicId,
+      transcript_embedding: transcriptEmbedding
     });
     await newRecording.save();
 

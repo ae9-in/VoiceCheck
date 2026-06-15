@@ -43,6 +43,17 @@ const RecordingSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: ['Unique', 'Exact Duplicate', 'Near Duplicate', 'Repeated Content', 'Processing Failed']
+  },
+  cloudinary_url: {
+    type: String,
+    trim: true
+  },
+  cloudinary_public_id: {
+    type: String,
+    trim: true
+  },
+  transcript_embedding: {
+    type: [Number]
   }
 }, {
   timestamps: true

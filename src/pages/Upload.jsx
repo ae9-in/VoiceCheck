@@ -2,11 +2,17 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, X, Music, Clock, FileAudio, CheckCircle2, Loader2,
          Circle, Copy, Activity, Globe, Shield, Lock, AlertCircle,
-         ChevronRight } from 'lucide-react'
+         ChevronRight, CloudOff, MinusCircle } from 'lucide-react'
 import { useRecordingStore } from '../store/useRecordingStore'
 import PageHeader from '../components/ui/PageHeader'
 import StatusBadge from '../components/ui/StatusBadge'
 import ToastNotification from '../components/ui/ToastNotification'
+import { useCloudinaryUpload } from '../hooks/useCloudinaryUpload'
+import { validateAudioFile, getAudioDuration } from '../services/cloudinaryService'
+import { formatFileSize } from '../utils/formatters'
+import { useTranscription } from '../hooks/useTranscription'
+import { findMostSimilarTranscript } from '../utils/similarity'
+
 
 export default function UploadRecording() {
   const navigate = useNavigate();
@@ -14,12 +20,33 @@ export default function UploadRecording() {
   const fileInputRef = useRef(null);
   const timeoutsRef = useRef([]);
 
+  // Cloudinary upload hook
+  const { 
+    uploadProgress, 
+    isUploading, 
+    uploadError, 
+    uploadResult, 
+    startUpload, 
+    resetUpload 
+  } = useCloudinaryUpload();
+
+  // Transcription hook
+  const {
+    serviceOnline,
+    runTranscription
+  } = useTranscription();
+
+
   // State Variables
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [fileDuration, setFileDuration] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [stepStatus, setStepStatus] = useState({ 
-    step1: 'pending', step2: 'pending', step3: 'pending' 
+    upload: 'pending', 
+    duplicate: 'pending', 
+    transcript: 'pending', 
+    similarity: 'pending' 
   });
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
@@ -102,27 +129,14 @@ export default function UploadRecording() {
   };
 
   // File Validation
-  const validateAndSelectFile = (file) => {
+  const validateAndSelectFile = async (file) => {
     if (!file) return;
 
-    const validExtensions = ['mp3', 'wav', 'm4a', 'aac'];
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    
-    if (!validExtensions.includes(ext)) {
+    const validation = validateAudioFile(file);
+    if (!validation.valid) {
       setToast({
         isOpen: true,
-        message: "Only MP3, WAV, M4A and AAC files are supported",
-        type: 'error'
-      });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    const maxSize = 50 * 1024 * 1024; // 50MB
-    if (file.size > maxSize) {
-      setToast({
-        isOpen: true,
-        message: "File size exceeds the 50MB limit",
+        message: validation.error,
         type: 'error'
       });
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -130,20 +144,30 @@ export default function UploadRecording() {
     }
 
     setSelectedFile(file);
+    setFileDuration(null);
+    try {
+      const dur = await getAudioDuration(file);
+      setFileDuration(dur);
+    } catch (e) {
+      console.warn('Could not read duration client-side:', e.message);
+    }
   };
 
   // Clear selected file
   const handleClearFile = () => {
     setSelectedFile(null);
+    setFileDuration(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Simulated duration value once file is loaded
   const fileDurationText = useMemo(() => {
-    if (!selectedFile) return 'Calculating...';
-    // Generate a pseudo-random length
-    return "05:42";
-  }, [selectedFile]);
+    if (!selectedFile) return '';
+    if (fileDuration === null) return 'Reading metadata...';
+    const m = Math.floor(fileDuration / 60);
+    const s = Math.floor(fileDuration % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }, [selectedFile, fileDuration]);
 
   const getFileTypeBadge = (fileName) => {
     const ext = fileName?.split('.').pop()?.toLowerCase();
@@ -165,7 +189,7 @@ export default function UploadRecording() {
   };
 
   // Form Submit Handler
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -203,124 +227,205 @@ export default function UploadRecording() {
     // Pass validation
     setErrors({});
     setIsProcessing(true);
-    setStepStatus({ step1: 'active', step2: 'pending', step3: 'pending' });
+    setStepStatus({ 
+      upload: 'active', 
+      duplicate: 'pending', 
+      transcript: 'pending', 
+      similarity: 'pending' 
+    });
     setProgress(0);
 
-    // Clear previous timeouts if any
-    timeoutsRef.current.forEach(clearTimeout);
-    timeoutsRef.current = [];
+    try {
+      // Stage 1: Upload to Cloudinary
+      const uploadRes = await startUpload(selectedFile);
+      
+      setStepStatus(prev => ({ ...prev, upload: 'done', duplicate: 'active' }));
+      setProgress(25);
 
-    // Step 1 completes after 1500ms
-    const t1 = setTimeout(() => {
-      setStepStatus({ step1: 'done', step2: 'active', step3: 'pending' });
-      setProgress(33);
-    }, 1500);
+      // Stage 2: Checking for duplicates (Real exact hash check)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const exactMatch = recordings.find(r => r.fileHash === uploadRes.fileHash);
 
-    // Step 2 completes after 2500ms (1500 + 2500)
-    const t2 = setTimeout(() => {
-      setStepStatus({ step1: 'done', step2: 'done', step3: 'active' });
-      setProgress(66);
-    }, 4000);
+      let status = 'Unique';
+      let matchedRecordingId = null;
+      let similarityScore = null;
+      let duplicateType = null;
+      let transcriptText = '';
+      let confidenceScore = 0.94;
+      let transcriptEmbedding = null;
+      let detectedLanguage = formData.language;
 
-    // Step 3 completes after 1500ms (4000 + 1500)
-    const t3 = setTimeout(() => {
-      setStepStatus({ step1: 'done', step2: 'done', step3: 'done' });
-      setProgress(100);
-    }, 5500);
+      if (exactMatch) {
+        status = 'Exact Duplicate';
+        matchedRecordingId = exactMatch.recordingId;
+        similarityScore = 1.0;
+        duplicateType = 'exact';
+        transcriptText = exactMatch.transcriptText || `This is an exact duplicate of the recording ${exactMatch.recordingId}.`;
+        confidenceScore = exactMatch.confidenceScore || 0.95;
+        transcriptEmbedding = exactMatch.transcriptEmbedding || null;
+        detectedLanguage = exactMatch.language || formData.language;
+        
+        setStepStatus(prev => ({ 
+          ...prev, 
+          duplicate: 'done', 
+          transcript: 'done', 
+          similarity: 'done' 
+        }));
+        setProgress(100);
+      } else {
+        // Mock triggers checking if name contains 'exact' or 'sarah'
+        const nameLower = formData.candidateName.toLowerCase();
+        if (nameLower.includes('exact') || nameLower.includes('sarah')) {
+          status = 'Exact Duplicate';
+          matchedRecordingId = 'REC-2024-0005';
+          similarityScore = 0.99;
+          duplicateType = 'exact';
+        }
 
-    // Display result card after 6000ms
-    const t4 = setTimeout(() => {
-      completeUpload();
-    }, 6000);
+        setStepStatus(prev => ({ ...prev, duplicate: 'done' }));
+        setProgress(50);
 
-    timeoutsRef.current.push(t1, t2, t3, t4);
-  };
+        // Stage 3: Generating transcript
+        if (serviceOnline) {
+          setStepStatus(prev => ({ ...prev, transcript: 'active' }));
+          try {
+            const transcriptionData = await runTranscription(selectedFile);
+            if (!transcriptionData || !transcriptionData.transcript || !transcriptionData.transcript.trim()) {
+              status = 'Processing Failed';
+              transcriptText = '';
+              transcriptEmbedding = null;
+              setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'skipped' }));
+            } else {
+              transcriptText = transcriptionData.transcript;
+              transcriptEmbedding = transcriptionData.embedding || null;
+              confidenceScore = transcriptionData.confidence || 0.94;
+              detectedLanguage = transcriptionData.languageName || transcriptionData.language || formData.language;
+              setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'active' }));
+            }
+          } catch (err) {
+            console.error("Transcription service call failed:", err);
+            status = 'Processing Failed';
+            transcriptText = '';
+            transcriptEmbedding = null;
+            setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'skipped' }));
+          }
+        } else {
+          // Offline / graceful degradation
+          transcriptText = '';
+          transcriptEmbedding = null;
+          setStepStatus(prev => ({ ...prev, transcript: 'skipped', similarity: 'skipped' }));
+        }
 
-  const completeUpload = () => {
-    const nextId = recordings.length + 1;
-    const recordingId = `REC-2024-${nextId.toString().padStart(4, '0')}`;
-    
-    // Check candidateName for mock results variations
-    const nameLower = formData.candidateName.toLowerCase();
-    
-    let status = 'Unique';
-    let matchedRecordingId = null;
-    let similarityScore = null;
-    let duplicateType = null;
+        setProgress(75);
 
-    if (nameLower.includes('exact') || nameLower.includes('sarah')) {
-      status = 'Exact Duplicate';
-      matchedRecordingId = 'REC-2024-0005';
-      similarityScore = 0.99;
-      duplicateType = 'exact';
-    } else if (nameLower.includes('near') || nameLower.includes('michael')) {
-      status = 'Near Duplicate';
-      matchedRecordingId = 'REC-2024-0005';
-      similarityScore = 0.97;
-      duplicateType = 'near';
-    } else if (nameLower.includes('repeated') || nameLower.includes('content') || nameLower.includes('duplicate')) {
-      status = 'Repeated Content';
-      matchedRecordingId = 'REC-2024-0010';
-      similarityScore = 0.91;
-      duplicateType = 'repeated';
-    }
+        // Stage 4: Running similarity analysis
+        if (status !== 'Processing Failed') {
+          // Audio fingerprinting (Near duplicate check) is still mocked
+          const nameLowerCheck = formData.candidateName.toLowerCase();
+          if (nameLowerCheck.includes('near') || nameLowerCheck.includes('michael')) {
+            status = 'Near Duplicate';
+            matchedRecordingId = 'REC-2024-0005';
+            similarityScore = 0.97;
+            duplicateType = 'near';
+          }
 
-    const mockResult = {
-      recordingId,
-      status,
-      matchedRecordingId,
-      similarityScore,
-      duplicateType,
-      confidenceScore: 0.94,
-      transcriptPreview: `The client meeting went well today. We discussed Q3 targets and agreed on a revised delivery timeline. The candidate ${formData.candidateName} completed verification.`
-    };
+          // If transcript is available and not already a duplicate, run cosine similarity check
+          if (serviceOnline && transcriptEmbedding && status !== 'Exact Duplicate' && status !== 'Near Duplicate') {
+            const { match, score } = findMostSimilarTranscript(transcriptEmbedding, recordings);
+            if (match) {
+              status = 'Repeated Content';
+              matchedRecordingId = match.recordingId;
+              similarityScore = score;
+              duplicateType = 'repeated';
+            }
+          }
+        }
 
-    const newRecordObj = {
-      recordingId: mockResult.recordingId,
-      candidateId: formData.candidateId,
-      candidateName: formData.candidateName,
-      uploadTime: new Date().toISOString(),
-      duration: 342, // 5m 42s
-      fileSize: selectedFile.size,
-      fileHash: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
-      audioFingerprint: Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
-      status: mockResult.status,
-      matchedRecordingId: mockResult.matchedRecordingId,
-      similarityScore: mockResult.similarityScore,
-      duplicateType: mockResult.duplicateType,
-      transcriptText: mockResult.transcriptPreview,
-      confidenceScore: mockResult.confidenceScore,
-      language: formData.language,
-      transcriptProcessedAt: new Date().toISOString()
-    };
+        setStepStatus(prev => {
+          if (prev.similarity === 'skipped') return prev;
+          return { ...prev, similarity: 'done' };
+        });
+        setProgress(100);
+      }
 
-    // Save to Zustand store
-    addRecording(newRecordObj);
+      // Compile recording record
+      const nextId = recordings.length + 1;
+      const recordingId = `REC-2024-${nextId.toString().padStart(4, '0')}`;
 
-    // Save result local state
-    setResult(mockResult);
-    setIsProcessing(false);
+      const finalResult = {
+        recordingId,
+        status,
+        matchedRecordingId,
+        similarityScore,
+        duplicateType,
+        confidenceScore,
+        transcriptPreview: transcriptText || 'Transcription skipped/failed.'
+      };
 
-    // Trigger Success Toasts
-    if (status === 'Unique') {
+      const newRecordObj = {
+        recordingId: finalResult.recordingId,
+        candidateId: formData.candidateId,
+        candidateName: formData.candidateName,
+        uploadTime: new Date().toISOString(),
+        duration: Math.round(uploadRes.duration),
+        fileSize: uploadRes.fileSize,
+        fileHash: uploadRes.fileHash,
+        audioFingerprint: Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+        status: finalResult.status,
+        matchedRecordingId: finalResult.matchedRecordingId,
+        similarityScore: finalResult.similarityScore,
+        duplicateType: finalResult.duplicateType,
+        transcriptText: finalResult.transcriptPreview,
+        confidenceScore: finalResult.confidenceScore,
+        language: detectedLanguage,
+        transcriptProcessedAt: new Date().toISOString(),
+        cloudinaryUrl: uploadRes.url,
+        cloudinaryPublicId: uploadRes.publicId,
+        transcriptEmbedding: transcriptEmbedding
+      };
+
+      // Add to store and save in DB
+      await addRecording(newRecordObj);
+
+      setResult(finalResult);
+      setIsProcessing(false);
+
+      if (status === 'Unique') {
+        setToast({
+          isOpen: true,
+          message: "Recording uploaded and analyzed successfully",
+          type: 'success'
+        });
+      } else {
+        setToast({
+          isOpen: true,
+          message: `Duplicate detected (${status}) — recording saved but flagged`,
+          type: 'error'
+        });
+      }
+
+    } catch (err) {
+      console.error('Upload failed:', err);
+      setIsProcessing(false);
       setToast({
         isOpen: true,
-        message: "Recording uploaded and analyzed successfully",
-        type: 'success'
-      });
-    } else {
-      setToast({
-        isOpen: true,
-        message: "Duplicate detected — recording saved but flagged",
+        message: err.message || 'Upload failed',
         type: 'error'
       });
     }
   };
 
   const handleUploadAnother = () => {
+    resetUpload();
     setSelectedFile(null);
+    setFileDuration(null);
     setIsProcessing(false);
-    setStepStatus({ step1: 'pending', step2: 'pending', step3: 'pending' });
+    setStepStatus({ 
+      upload: 'pending', 
+      duplicate: 'pending', 
+      transcript: 'pending', 
+      similarity: 'pending' 
+    });
     setProgress(0);
     setResult(null);
     setFormData({ candidateId: '', candidateName: '', language: 'English', notes: '' });
@@ -347,13 +452,19 @@ export default function UploadRecording() {
             <CheckCircle2 size={16} />
           </div>
         )}
+        {status === 'skipped' && (
+          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400">
+            <MinusCircle size={16} />
+          </div>
+        )}
         
         <span className={`text-sm ${
           status === 'pending' ? 'text-gray-400' :
           status === 'active' ? 'text-gray-900 font-medium' :
+          status === 'skipped' ? 'text-gray-400 italic font-normal' :
           'text-green-700'
         }`}>
-          {stepLabel}
+          {stepLabel} {status === 'skipped' && '(skipped)'}
         </span>
       </div>
     );
@@ -371,9 +482,39 @@ export default function UploadRecording() {
 
       <PageHeader title="Upload Recording" breadcrumb="Home > Upload Recording" />
 
+      {/* Transcription Service Health Banner */}
+      <div className="mt-4">
+        {serviceOnline === null ? (
+          <div className="bg-gray-50 border border-gray-200 text-gray-650 rounded-xl p-3 px-4 text-xs flex items-center gap-2.5 shadow-sm">
+            <Loader2 size={14} className="animate-spin text-gray-400" />
+            <span className="font-medium">Checking transcription service status...</span>
+          </div>
+        ) : serviceOnline ? (
+          <div className="bg-emerald-50 border border-emerald-250 text-emerald-850 rounded-xl p-3 px-4 text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-250">
+            <div className="flex items-center gap-2.5">
+              <div className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </div>
+              <span>
+                <strong className="font-semibold text-emerald-900">Transcription Service Online:</strong> Speech-to-text and multilingual embedding similarity analysis are active.
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-amber-55 bg-amber-50 border border-amber-250 text-amber-850 rounded-xl p-3 px-4 text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-250">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-2 w-2 rounded-full bg-amber-500"></span>
+              <span>
+                <strong className="font-semibold text-amber-900">Transcription Service Offline:</strong> Running in offline mode. Transcription and similarity checks will be skipped (graceful degradation).
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
-        
-        {/* Left Column: File Upload Zone */}
+                {/* Left Column: File Upload Zone */}
         <div className="space-y-6">
           
           {/* Result Card State */}
@@ -455,26 +596,43 @@ export default function UploadRecording() {
                 </div>
               </div>
             </div>
+          ) : uploadError ? (
+            // Upload Error Card State
+            <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-center shadow-sm animate-in zoom-in-95 duration-200">
+              <CloudOff size={32} className="text-red-400 mx-auto" />
+              <h3 className="text-red-700 font-semibold mt-2">Upload failed</h3>
+              <p className="text-red-500 text-sm mt-1 mb-4">{uploadError}</p>
+              <button 
+                type="button"
+                onClick={resetUpload}
+                className="px-4 py-2 border border-red-600 text-red-650 hover:bg-red-100 rounded-lg font-semibold text-xs tracking-wide transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
           ) : isProcessing ? (
             // Upload Progress State
             <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4 animate-in fade-in duration-300">
               <h3 className="font-semibold text-gray-900 text-sm tracking-wide">Analyzing your recording...</h3>
               
               <div className="flex flex-col gap-3">
-                {renderStepRow("Checking for duplicates...", stepStatus.step1)}
-                {renderStepRow("Generating transcript...", stepStatus.step2)}
-                {renderStepRow("Running similarity analysis...", stepStatus.step3)}
+                {renderStepRow("Uploading to cloud storage...", stepStatus.upload)}
+                {renderStepRow("Checking for duplicates...", stepStatus.duplicate)}
+                {renderStepRow("Generating transcript...", stepStatus.transcript)}
+                {renderStepRow("Running similarity analysis...", stepStatus.similarity)}
               </div>
 
               {/* Progress track bar */}
               <div className="space-y-1 pt-2">
                 <div className="bg-gray-200 rounded-full h-1.5 w-full overflow-hidden">
                   <div 
-                    className="h-full bg-indigo-600 rounded-full transition-all duration-500 ease-out" 
-                    style={{ width: `${progress}%` }}
+                    className="h-full bg-indigo-600 rounded-full transition-all duration-350" 
+                    style={{ width: `${stepStatus.upload === 'active' ? uploadProgress : progress}%` }}
                   />
                 </div>
-                <div className="text-right text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">{progress}% Complete</div>
+                <div className="text-right text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
+                  {stepStatus.upload === 'active' ? `${uploadProgress}% uploaded` : `${progress}% Complete`}
+                </div>
               </div>
             </div>
           ) : selectedFile ? (
@@ -643,6 +801,9 @@ export default function UploadRecording() {
                 <option>Kannada</option>
                 <option>Other</option>
               </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Note: When the transcription service is online, language is auto-detected directly from the audio.
+              </p>
             </div>
 
             {/* Notes */}
