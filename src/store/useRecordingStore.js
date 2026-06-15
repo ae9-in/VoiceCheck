@@ -130,6 +130,33 @@ export const useRecordingStore = create((set, get) => ({
         selectedRecording: state.selectedRecording?.recordingId === recordingId ? null : state.selectedRecording
       }));
     }
+  },
+  
+  updateRecording: async (recordingId, updatedFields) => {
+    let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+    if (apiUrl && !apiUrl.endsWith('/api') && !apiUrl.endsWith('/api/')) {
+      apiUrl = `${apiUrl.replace(/\/$/, '')}/api`;
+    }
+    try {
+      const res = await fetch(`${apiUrl}/recordings/${recordingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedFields)
+      });
+      if (!res.ok) throw new Error('Failed to update recording in database');
+      
+      await get().fetchRecordings();
+    } catch (err) {
+      console.error("Offline: updating recording only in local state.", err.message);
+      set((state) => ({
+        recordings: state.recordings.map(r => 
+          r.recordingId === recordingId ? { ...r, ...updatedFields } : r
+        ),
+        selectedRecording: state.selectedRecording?.recordingId === recordingId 
+          ? { ...state.selectedRecording, ...updatedFields } 
+          : state.selectedRecording
+      }));
+    }
   }
 }));
 

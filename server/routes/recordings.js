@@ -147,4 +147,60 @@ router.delete('/:recordingId', async (req, res) => {
   }
 });
 
+// PUT to update a recording (e.g. after re-analysis)
+router.put('/:recordingId', async (req, res) => {
+  try {
+    const recId = req.params.recordingId;
+    const {
+      status,
+      matchedRecordingId,
+      similarityScore,
+      duplicateType,
+      transcriptText,
+      confidenceScore,
+      language,
+      transcriptProcessedAt,
+      transcriptEmbedding
+    } = req.body;
+
+    // 1. Update Recording status and embedding
+    const recording = await Recording.findOne({ recording_id: recId });
+    if (!recording) {
+      return res.status(404).json({ error: 'Recording not found' });
+    }
+    
+    if (status !== undefined) recording.status = status;
+    if (transcriptEmbedding !== undefined) recording.transcript_embedding = transcriptEmbedding;
+    await recording.save();
+
+    // 2. Update Transcript details
+    await Transcript.findOneAndUpdate(
+      { recording_id: recId },
+      {
+        transcript_text: transcriptText || '',
+        confidence_score: confidenceScore || 0,
+        language: language || 'English',
+        transcript_processed_at: transcriptProcessedAt || new Date()
+      },
+      { upsert: true }
+    );
+
+    // 3. Update DuplicateMapping
+    await DuplicateMapping.deleteMany({ recording_id: recId });
+    if (status !== 'Unique' && matchedRecordingId) {
+      const newDup = new DuplicateMapping({
+        recording_id: recId,
+        matched_recording_id: matchedRecordingId,
+        similarity_score: similarityScore,
+        duplicate_type: duplicateType
+      });
+      await newDup.save();
+    }
+
+    res.json({ message: 'Recording successfully updated', recordingId: recId });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 export default router;
