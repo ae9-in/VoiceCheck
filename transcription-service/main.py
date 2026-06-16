@@ -1,4 +1,11 @@
 import os
+# Limit multi-threading libraries to 1 thread to prevent OOM/CPU throttling hang in containers
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import sys
 import time
 import tempfile
@@ -119,11 +126,17 @@ def get_whisper_model():
         except Exception:
             pass
 
-        print(f"[Model] Loading Whisper '{model_size}' on '{device}' ({compute_type})...")
+        cpu_threads = int(os.getenv("WHISPER_CPU_THREADS", "1"))
+        print(f"[Model] Loading Whisper '{model_size}' on '{device}' ({compute_type}) with {cpu_threads} threads...")
         _log_memory("before-whisper")
         try:
             from faster_whisper import WhisperModel
-            models["whisper"] = WhisperModel(model_size, device=device, compute_type=compute_type)
+            models["whisper"] = WhisperModel(
+                model_size, 
+                device=device, 
+                compute_type=compute_type,
+                cpu_threads=cpu_threads
+            )
             _log_memory("after-whisper")
             print(f"[Model] Whisper '{model_size}' loaded OK")
         except MemoryError as e:
