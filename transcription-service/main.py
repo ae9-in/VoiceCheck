@@ -23,6 +23,9 @@ from models.schemas import (
     HealthResponse
 )
 
+# Tracks the last model-load error so endpoints return 503 instead of crashing
+_model_load_error: str | None = None
+
 # Global model containers
 models = {}
 
@@ -35,20 +38,57 @@ LANGUAGE_NAMES = {
     "kn": "Kannada",
 }
 
+def _log_memory(label: str):
+    """Print current process RSS memory to Render logs for debugging."""
+    try:
+        import psutil
+        proc = psutil.Process(os.getpid())
+        rss = proc.memory_info().rss / 1024 / 1024
+        avail = psutil.virtual_memory().available / 1024 / 1024
+        print(f"[Memory/{label}] RSS={rss:.0f}MB  available={avail:.0f}MB")
+    except Exception:
+        pass
+
 def get_whisper_model():
+    global _model_load_error
     if "whisper" not in models:
         model_size = os.getenv("WHISPER_MODEL_SIZE", "tiny")
         device = os.getenv("WHISPER_DEVICE", "cpu")
         compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
-        print(f"Lazy-loading Whisper model '{model_size}' on '{device}' with compute type '{compute_type}'...")
-        models["whisper"] = WhisperModel(model_size, device=device, compute_type=compute_type)
+        print(f"[Model] Loading Whisper '{model_size}' on '{device}' ({compute_type})...")
+        _log_memory("before-whisper")
+        try:
+            models["whisper"] = WhisperModel(model_size, device=device, compute_type=compute_type)
+            _log_memory("after-whisper")
+            print(f"[Model] Whisper '{model_size}' loaded OK")
+        except MemoryError as e:
+            _model_load_error = f"Out of memory loading Whisper '{model_size}': {e}"
+            print(f"[ERROR] {_model_load_error}")
+            raise HTTPException(status_code=503, detail=_model_load_error)
+        except Exception as e:
+            _model_load_error = f"Failed to load Whisper '{model_size}': {e}"
+            print(f"[ERROR] {_model_load_error}")
+            raise HTTPException(status_code=503, detail=_model_load_error)
     return models["whisper"]
 
 def get_embedding_model():
+    global _model_load_error
     if "embedding" not in models:
         embedding_model_name = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-        print(f"Lazy-loading Embedding model '{embedding_model_name}'...")
-        models["embedding"] = SentenceTransformer(embedding_model_name)
+        print(f"[Model] Loading embedding model '{embedding_model_name}'...")
+        _log_memory("before-embedding")
+        try:
+            models["embedding"] = SentenceTransformer(embedding_model_name)
+            _log_memory("after-embedding")
+            print(f"[Model] Embedding model '{embedding_model_name}' loaded OK")
+        except MemoryError as e:
+            _model_load_error = f"Out of memory loading embedding model '{embedding_model_name}': {e}"
+            print(f"[ERROR] {_model_load_error}")
+            raise HTTPException(status_code=503, detail=_model_load_error)
+        except Exception as e:
+            _model_load_error = f"Failed to load embedding model '{embedding_model_name}': {e}"
+            print(f"[ERROR] {_model_load_error}")
+            raise HTTPException(status_code=503, detail=_model_load_error)
     return models["embedding"]
 
 @asynccontextmanager
@@ -95,28 +135,37 @@ app.add_middleware(
 )
 
 def load_models_if_needed():
-    # Calling the getter functions triggers lazy loading if not already loaded
-    get_whisper_model()
-    get_embedding_model()
+    """Called as a BackgroundTask from /status — loads models safely.
+    Errors are caught and logged; the process is NOT killed on failure."""
+    try:
+        get_whisper_model()
+    except Exception as e:
+        print(f"[Warmup] Whisper load failed: {e}")
+        return  # Don't attempt embedding if Whisper already OOM'd
+    try:
+        get_embedding_model()
+    except Exception as e:
+        print(f"[Warmup] Embedding load failed: {e}")
 
 @app.get("/status", response_model=HealthResponse)
 async def status(background_tasks: BackgroundTasks):
     whisper_loaded = "whisper" in models
     embedding_loaded = "embedding" in models
     models_loaded = whisper_loaded and embedding_loaded
-    
-    # If models aren't loaded yet, trigger background load
-    # so the next real request doesn't have to wait
-    if not models_loaded:
+
+    # Only schedule background warm-up when no models are loaded at all.
+    # Avoid re-triggering on every UptimeRobot ping once loading is in progress.
+    if not whisper_loaded and not embedding_loaded and _model_load_error is None:
         background_tasks.add_task(load_models_if_needed)
-        
+
     whisper_model_size = os.getenv("WHISPER_MODEL_SIZE", "tiny")
     embedding_model_name = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-    
+
+    status_str = "ok" if models_loaded else ("error" if _model_load_error else "loading")
     return HealthResponse(
-        status="ok",
-        whisperModel=whisper_model_size if whisper_loaded else "loading",
-        embeddingModel=embedding_model_name if embedding_loaded else "loading"
+        status=status_str,
+        whisperModel=whisper_model_size if whisper_loaded else ("error" if _model_load_error else "loading"),
+        embeddingModel=embedding_model_name if embedding_loaded else ("error" if _model_load_error else "loading")
     )
 
 @app.post("/transcribe", response_model=TranscriptionResponse)
@@ -124,6 +173,8 @@ async def transcribe(
     file: UploadFile = File(...),
     language: Optional[str] = Query(None)
 ):
+    if _model_load_error:
+        raise HTTPException(status_code=503, detail=f"Transcription service unavailable: {_model_load_error}")
     if not file or not file.filename:
         raise HTTPException(status_code=400, detail="Invalid or empty audio file")
         
