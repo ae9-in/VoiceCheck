@@ -73,11 +73,17 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="VoiceCheck Transcription Service", lifespan=lifespan)
 
 # CORS configuration
-# Defaults include both local dev and the production Vercel frontend.
-# Override by setting CORS_ORIGINS env var with a comma-separated list.
-_CORS_DEFAULTS = "http://localhost:5173,https://voice-check-rose.vercel.app"
-cors_origins_raw = os.getenv("CORS_ORIGINS", _CORS_DEFAULTS)
-cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+# These origins are ALWAYS allowed regardless of the CORS_ORIGINS env var.
+# This prevents a stale env var on Render from locking out the production frontend.
+_CORS_ALWAYS_ALLOWED = {
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://voice-check-rose.vercel.app",
+}
+# Merge with any extra origins specified in the env var
+_cors_env = os.getenv("CORS_ORIGINS", "")
+_cors_extra = {o.strip() for o in _cors_env.split(",") if o.strip()}
+cors_origins = sorted(_CORS_ALWAYS_ALLOWED | _cors_extra)
 print(f"[CORS] Allowed origins: {cors_origins}")
 
 app.add_middleware(
