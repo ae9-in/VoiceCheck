@@ -57,13 +57,18 @@ def get_whisper_model():
         compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
 
         # Memory-aware safety guard: Render free tier has 512MB total.
-        # Whisper 'small' needs ~500MB alone — automatically downgrade to 'tiny'
-        # (~75MB) if available RAM is below 400MB to avoid OOM kills.
+        # Whisper 'small' needs ~500MB alone. If total system RAM is under 1GB,
+        # we must force 'tiny' (~75MB) to avoid OOM kills.
         try:
             import psutil
+            total_mb = psutil.virtual_memory().total / 1024 / 1024
             avail_mb = psutil.virtual_memory().available / 1024 / 1024
-            if model_size != "tiny" and avail_mb < 400:
-                print(f"[Model] WARNING: Only {avail_mb:.0f}MB available — "
+            if total_mb < 1000 and model_size not in ("tiny", "base"):
+                print(f"[Model] WARNING: Total system RAM is only {total_mb:.0f}MB — "
+                      f"forcing Whisper size to 'tiny' (requested '{model_size}') to avoid OOM.")
+                model_size = "tiny"
+            elif model_size != "tiny" and avail_mb < 400:
+                print(f"[Model] WARNING: Only {avail_mb:.0f}MB RAM available — "
                       f"downgrading Whisper from '{model_size}' to 'tiny' to avoid OOM.")
                 model_size = "tiny"
         except Exception:
