@@ -55,6 +55,7 @@ export default function UploadRecording() {
   });
   const [errors, setErrors] = useState({});
   const [charCount, setCharCount] = useState(0);
+  const [transcriptWarmingUp, setTranscriptWarmingUp] = useState(false);
 
   // Toast State
   const [toast, setToast] = useState({
@@ -280,8 +281,12 @@ export default function UploadRecording() {
           const shouldAttemptTranscription = (serviceOnline === 'online' || serviceOnline === 'unknown');
           if (shouldAttemptTranscription) {
             setStepStatus(prev => ({ ...prev, transcript: 'active' }));
+            const warmupTimer = setTimeout(() => setTranscriptWarmingUp(true), 5000);
+            timeoutsRef.current.push(warmupTimer);
             try {
               const transcriptionData = await runTranscription(selectedFile);
+              clearTimeout(warmupTimer);
+              setTranscriptWarmingUp(false);
               if (!transcriptionData || !transcriptionData.transcript || !transcriptionData.transcript.trim()) {
                 transcriptStatus = 'failed';
                 transcriptText = '';
@@ -297,6 +302,8 @@ export default function UploadRecording() {
                 setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'done' }));
               }
             } catch (err) {
+              clearTimeout(warmupTimer);
+              setTranscriptWarmingUp(false);
               console.error('Transcription failed for exact match re-attempt:', err);
               transcriptStatus = 'skipped';
               transcriptText = '';
@@ -330,8 +337,12 @@ export default function UploadRecording() {
         const shouldAttemptTranscription = (serviceOnline === 'online' || serviceOnline === 'unknown');
         if (shouldAttemptTranscription) {
           setStepStatus(prev => ({ ...prev, transcript: 'active' }));
+          const warmupTimer = setTimeout(() => setTranscriptWarmingUp(true), 5000);
+          timeoutsRef.current.push(warmupTimer);
           try {
             const transcriptionData = await runTranscription(selectedFile);
+            clearTimeout(warmupTimer);
+            setTranscriptWarmingUp(false);
             if (!transcriptionData || !transcriptionData.transcript || !transcriptionData.transcript.trim()) {
               transcriptStatus = 'failed';
               transcriptText = '';
@@ -347,6 +358,8 @@ export default function UploadRecording() {
               setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'active' }));
             }
           } catch (err) {
+            clearTimeout(warmupTimer);
+            setTranscriptWarmingUp(false);
             console.error("Transcription service call failed, falling back to skipped behavior:", err);
             transcriptStatus = 'skipped';
             transcriptText = '';
@@ -477,6 +490,7 @@ export default function UploadRecording() {
     setSelectedFile(null);
     setFileDuration(null);
     setIsProcessing(false);
+    setTranscriptWarmingUp(false);
     setStepStatus({ 
       upload: 'pending', 
       duplicate: 'pending', 
@@ -491,38 +505,41 @@ export default function UploadRecording() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const renderStepRow = (stepLabel, status) => {
+  const renderStepRow = (stepLabel, status, subLabel = null) => {
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         {status === 'pending' && (
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400">
+          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400 mt-0.5">
             <Circle size={16} />
           </div>
         )}
         {status === 'active' && (
-          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 text-indigo-600">
+          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 text-indigo-600 mt-0.5">
             <Loader2 size={16} className="animate-spin" />
           </div>
         )}
         {status === 'done' && (
-          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 text-green-600">
+          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 text-green-600 mt-0.5">
             <CheckCircle2 size={16} />
           </div>
         )}
         {status === 'skipped' && (
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400">
+          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400 mt-0.5">
             <MinusCircle size={16} />
           </div>
         )}
         
-        <span className={`text-sm ${
-          status === 'pending' ? 'text-gray-400' :
-          status === 'active' ? 'text-gray-900 font-medium' :
-          status === 'skipped' ? 'text-gray-400 italic font-normal' :
-          'text-green-700'
-        }`}>
-          {stepLabel} {status === 'skipped' && '(skipped)'}
-        </span>
+        <div className="flex flex-col">
+          <span className={`text-sm ${
+            status === 'pending' ? 'text-gray-400' :
+            status === 'active' ? 'text-gray-900 font-medium' :
+            status === 'skipped' ? 'text-gray-400 italic font-normal' :
+            'text-green-700'
+          }`}>
+            {stepLabel} {status === 'skipped' && '(skipped)'}
+          </span>
+          {subLabel}
+        </div>
       </div>
     );
   };
@@ -680,7 +697,15 @@ export default function UploadRecording() {
               <div className="flex flex-col gap-3">
                 {renderStepRow("Uploading to cloud storage...", stepStatus.upload)}
                 {renderStepRow("Checking for duplicates...", stepStatus.duplicate)}
-                {renderStepRow("Generating transcript...", stepStatus.transcript)}
+                {renderStepRow(
+                  transcriptWarmingUp ? "Warming up transcription service..." : "Generating transcript...",
+                  stepStatus.transcript,
+                  transcriptWarmingUp && (
+                    <span className="text-xs text-amber-500 mt-0.5 block">
+                      Service is waking up — this may take up to 60 seconds
+                    </span>
+                  )
+                )}
                 {renderStepRow("Running similarity analysis...", stepStatus.similarity)}
               </div>
 

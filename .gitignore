@@ -39,6 +39,7 @@ temp/
 
 # Python virtual environments and caches
 venv/
+.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -46,3 +47,11 @@ transcription-service/venv/
 transcription-service/__pycache__/
 transcription-service/models/__pycache__/
 transcription-service/.env
+.python-version
+
+# Logs & DBs
+*.log
+*.sqlite
+*.sqlite3
+*.db
+

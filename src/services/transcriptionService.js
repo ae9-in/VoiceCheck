@@ -56,19 +56,33 @@ export async function transcribeAudio(file) {
   const formData = new FormData()
   formData.append('file', file)
 
-  const res = await fetch(`${TRANSCRIPTION_API_URL}/process`, {
-    method: 'POST',
-    body: formData,
-  })
+  // Render free tier can take 50-60s to wake up —
+  // use a generous timeout and show a "warming up" state
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 90000) // 90s
 
-  if (!res.ok) {
-    const errorBody = await res.json().catch(() => ({}))
-    throw new Error(
-      errorBody.error || `Transcription failed (${res.status})`
-    )
+  try {
+    const res = await fetch(`${TRANSCRIPTION_API_URL}/process`, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal
+    })
+    clearTimeout(timeout)
+
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => ({}))
+      throw new Error(errorBody.error || `Transcription failed (${res.status})`)
+    }
+
+    return res.json()
+
+  } catch (err) {
+    clearTimeout(timeout)
+    if (err.name === 'AbortError') {
+      throw new Error('Transcription service is taking too long to respond. It may be waking up — please try again in a moment.')
+    }
+    throw err
   }
-
-  return res.json()
 }
 
 /**
