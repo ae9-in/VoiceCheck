@@ -301,15 +301,17 @@ export default function UploadRecording() {
                 detectedLanguage = transcriptionData.languageName || transcriptionData.language || detectedLanguage;
                 setStepStatus(prev => ({ ...prev, transcript: 'done', similarity: 'done' }));
               }
-            } catch (err) {
+          } catch (err) {
               clearTimeout(warmupTimer);
               setTranscriptWarmingUp(false);
               console.error('Transcription failed for exact match re-attempt:', err);
-              transcriptStatus = 'skipped';
+              // TypeError = network/CORS failure: service was unreachable, not intentionally skipped
+              const isNetworkError = err instanceof TypeError;
+              transcriptStatus = isNetworkError ? 'failed' : 'skipped';
               transcriptText = '';
               transcriptEmbedding = null;
               confidenceScore = 0;
-              setStepStatus(prev => ({ ...prev, transcript: 'skipped', similarity: 'skipped' }));
+              setStepStatus(prev => ({ ...prev, transcript: isNetworkError ? 'failed' : 'skipped', similarity: 'skipped' }));
             }
           } else {
             transcriptStatus = 'skipped';
@@ -361,11 +363,13 @@ export default function UploadRecording() {
             clearTimeout(warmupTimer);
             setTranscriptWarmingUp(false);
             console.error("Transcription service call failed, falling back to skipped behavior:", err);
-            transcriptStatus = 'skipped';
+            // TypeError = network/CORS failure: service was unreachable, not intentionally skipped
+            const isNetworkError = err instanceof TypeError;
+            transcriptStatus = isNetworkError ? 'failed' : 'skipped';
             transcriptText = '';
             transcriptEmbedding = null;
             confidenceScore = 0;
-            setStepStatus(prev => ({ ...prev, transcript: 'skipped', similarity: 'skipped' }));
+            setStepStatus(prev => ({ ...prev, transcript: isNetworkError ? 'failed' : 'skipped', similarity: 'skipped' }));
           }
         } else {
           // Offline / graceful degradation
@@ -528,15 +532,23 @@ export default function UploadRecording() {
             <MinusCircle size={16} />
           </div>
         )}
+        {status === 'failed' && (
+          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 text-red-500 mt-0.5">
+            <AlertCircle size={16} />
+          </div>
+        )}
         
         <div className="flex flex-col">
           <span className={`text-sm ${
-            status === 'pending' ? 'text-gray-400' :
-            status === 'active' ? 'text-gray-900 font-medium' :
-            status === 'skipped' ? 'text-gray-400 italic font-normal' :
+            status === 'pending'  ? 'text-gray-400' :
+            status === 'active'   ? 'text-gray-900 font-medium' :
+            status === 'skipped'  ? 'text-gray-400 italic font-normal' :
+            status === 'failed'   ? 'text-red-600 font-medium' :
             'text-green-700'
           }`}>
-            {stepLabel} {status === 'skipped' && '(skipped)'}
+            {stepLabel}
+            {status === 'skipped' && ' (skipped)'}
+            {status === 'failed'  && ' (failed — will retry on next upload)'}
           </span>
           {subLabel}
         </div>
