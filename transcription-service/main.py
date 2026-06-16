@@ -239,19 +239,33 @@ async def status(background_tasks: BackgroundTasks):
     embedding_loaded = "embedding" in models
     models_loaded = whisper_loaded and embedding_loaded
 
-    # Only schedule background warm-up when no models are loaded at all.
-    # Avoid re-triggering on every UptimeRobot ping once loading is in progress.
-    if not whisper_loaded and not embedding_loaded and _model_load_error is None:
+    try:
+        total_mb, _ = get_system_memory_info()
+        is_low_mem = total_mb < 1000
+    except Exception:
+        is_low_mem = False
+
+    # Only schedule background warm-up when no models are loaded at all
+    # and we are NOT in a low-memory environment (where we skip pre-loading).
+    if not is_low_mem and not whisper_loaded and not embedding_loaded and _model_load_error is None:
         background_tasks.add_task(load_models_if_needed)
 
     whisper_model_size = os.getenv("WHISPER_MODEL_SIZE", "tiny")
     embedding_model_name = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
-    status_str = "ok" if models_loaded else ("error" if _model_load_error else "loading")
+    if is_low_mem:
+        status_str = "error" if _model_load_error else "ok"
+        whisper_status = "error" if _model_load_error else "ready (on-demand)"
+        embedding_status = "error" if _model_load_error else "ready (on-demand)"
+    else:
+        status_str = "ok" if models_loaded else ("error" if _model_load_error else "loading")
+        whisper_status = whisper_model_size if whisper_loaded else ("error" if _model_load_error else "loading")
+        embedding_status = embedding_model_name if embedding_loaded else ("error" if _model_load_error else "loading")
+
     return HealthResponse(
         status=status_str,
-        whisperModel=whisper_model_size if whisper_loaded else ("error" if _model_load_error else "loading"),
-        embeddingModel=embedding_model_name if embedding_loaded else ("error" if _model_load_error else "loading")
+        whisperModel=whisper_status,
+        embeddingModel=embedding_status
     )
 
 @app.post("/transcribe", response_model=TranscriptionResponse)
