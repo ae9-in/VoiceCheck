@@ -16,8 +16,8 @@ const TRANSCRIPTION_API_URL =
 export async function checkTranscriptionHealth() {
   try {
     const res = await fetch(`${TRANSCRIPTION_API_URL}/status`, {
-      // 5 s timeout — gives Render free-tier a bit more time to respond during warm-up
-      signal: AbortSignal.timeout(5000)
+      // 10s timeout — gives Render free-tier enough time to respond during warm-up
+      signal: AbortSignal.timeout(10000)
     })
     if (res.ok) {
       const data = await res.json()
@@ -56,10 +56,10 @@ export async function transcribeAudio(file) {
   const formData = new FormData()
   formData.append('file', file)
 
-  // Render free tier can take 50-60s to wake up —
-  // use a generous timeout and show a "warming up" state
+  // Render free tier needs time to load Whisper + embedding models on a cold start.
+  // 180s gives enough headroom for model loading (~60-90s) + actual transcription.
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 90000) // 90s
+  const timeout = setTimeout(() => controller.abort(), 180000) // 180s
 
   try {
     const res = await fetch(`${TRANSCRIPTION_API_URL}/process`, {
@@ -79,7 +79,9 @@ export async function transcribeAudio(file) {
   } catch (err) {
     clearTimeout(timeout)
     if (err.name === 'AbortError') {
-      throw new Error('Transcription service is taking too long to respond. It may be waking up — please try again in a moment.')
+      throw new Error(
+        'Transcription timed out after 3 minutes. The service may still be loading models — please try again in a moment.'
+      )
     }
     throw err
   }

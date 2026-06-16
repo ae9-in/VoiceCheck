@@ -702,7 +702,7 @@ export default function UploadRecording() {
                   stepStatus.transcript,
                   transcriptWarmingUp && (
                     <span className="text-xs text-amber-500 mt-0.5 block">
-                      Service is waking up — this may take up to 60 seconds
+                      Service is waking up — this may take up to 3 minutes on first use
                     </span>
                   )
                 )}
