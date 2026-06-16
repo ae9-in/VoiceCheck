@@ -177,6 +177,14 @@ def get_embedding_model():
         print(f"[Model] Loading embedding model '{embedding_model_name_or_path}'...")
         _log_memory("before-embedding")
         try:
+            # Set PyTorch to use 1 thread to avoid CPU/memory contention
+            try:
+                import torch
+                torch.set_num_threads(1)
+                print("[Model] Set PyTorch to 1 CPU thread")
+            except Exception as e:
+                print(f"[Model] Failed to set PyTorch threads: {e}")
+
             from sentence_transformers import SentenceTransformer
             models["embedding"] = SentenceTransformer(embedding_model_name_or_path)
             _log_memory("after-embedding")
@@ -190,6 +198,51 @@ def get_embedding_model():
             print(f"[ERROR] {_model_load_error}")
             raise HTTPException(status_code=503, detail=_model_load_error)
     return models["embedding"]
+
+def run_transcription(audio_path: str, language: Optional[str]):
+    """Scoped helper function to load and execute Whisper transcription.
+    Local variables will go out of scope immediately when this returns."""
+    whisper_model = get_whisper_model()
+    
+    whisper_lang = None
+    if language:
+        lang_lower = language.lower()
+        if lang_lower == "english":
+            whisper_lang = "en"
+        elif lang_lower == "hindi":
+            whisper_lang = "hi"
+        elif lang_lower == "tamil":
+            whisper_lang = "ta"
+        elif lang_lower == "telugu":
+            whisper_lang = "te"
+        elif lang_lower == "kannada":
+            whisper_lang = "kn"
+        else:
+            whisper_lang = lang_lower[:2]
+
+    segments, info = whisper_model.transcribe(
+        audio_path,
+        language=whisper_lang,
+        beam_size=5,
+        vad_filter=True
+    )
+    segment_list = list(segments)
+    return segment_list, info
+
+def run_embedding(text: str) -> list[float]:
+    """Scoped helper function to load and execute sentence embedding.
+    Local variables will go out of scope immediately when this returns."""
+    embedding_model = get_embedding_model()
+    embedding = embedding_model.encode(text, normalize_embeddings=True)
+    return embedding.tolist()
+
+def run_similarity(textA: str, textB: str) -> float:
+    """Scoped helper function to load and execute sentence similarity comparison.
+    Local variables will go out of scope immediately when this returns."""
+    embedding_model = get_embedding_model()
+    embeddings = embedding_model.encode([textA, textB], normalize_embeddings=True)
+    score = float(np.dot(embeddings[0], embeddings[1]))
+    return score
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -292,6 +345,10 @@ async def status(background_tasks: BackgroundTasks):
 @app.get("/diagnose")
 async def diagnose():
     import os
+    import time
+    import wave
+    import tempfile
+    
     project_dir = os.path.dirname(os.path.abspath(__file__))
     models_dir = os.path.join(project_dir, "models")
     
@@ -304,6 +361,74 @@ async def diagnose():
     embed_exists = os.path.exists(embed_path)
     embed_files = os.listdir(embed_path) if embed_exists else []
     
+    whisper_load_ms = None
+    whisper_test_ms = None
+    whisper_test_result = None
+    whisper_error = None
+    
+    embed_load_ms = None
+    embed_test_ms = None
+    embed_error = None
+    
+    # Try loading and testing Whisper
+    if whisper_exists:
+        whisper_model = None
+        try:
+            t0 = time.time()
+            from faster_whisper import WhisperModel
+            whisper_model = WhisperModel(whisper_path, device="cpu", compute_type="int8", cpu_threads=1)
+            whisper_load_ms = int((time.time() - t0) * 1000)
+            
+            # Create a 1-second silent WAV file to test inference
+            t1 = time.time()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+                temp_wav_path = f.name
+                with wave.open(temp_wav_path, "wb") as wav:
+                    wav.setnchannels(1)
+                    wav.setsampwidth(2)
+                    wav.setframerate(16000)
+                    wav.writeframes(b"\x00" * 32000)
+            
+            try:
+                segments, info = whisper_model.transcribe(temp_wav_path, beam_size=1)
+                segment_list = list(segments)
+                whisper_test_result = f"OK (transcribed {len(segment_list)} segments)"
+            finally:
+                if os.path.exists(temp_wav_path):
+                    os.remove(temp_wav_path)
+                    
+            whisper_test_ms = int((time.time() - t1) * 1000)
+        except Exception as e:
+            whisper_error = str(e)
+        finally:
+            if whisper_model is not None:
+                del whisper_model
+            gc.collect()
+            
+    # Try loading and testing embedding
+    if embed_exists:
+        embedding_model = None
+        try:
+            t0 = time.time()
+            from sentence_transformers import SentenceTransformer
+            try:
+                import torch
+                torch.set_num_threads(1)
+            except Exception:
+                pass
+            embedding_model = SentenceTransformer(embed_path)
+            embed_load_ms = int((time.time() - t0) * 1000)
+            
+            t1 = time.time()
+            embedding_model.encode("hello world", normalize_embeddings=True)
+            embed_test_ms = int((time.time() - t1) * 1000)
+        except Exception as e:
+            embed_error = str(e)
+        finally:
+            if embedding_model is not None:
+                del embedding_model
+            gc.collect()
+            
     total_mb, avail_mb = get_system_memory_info()
     
     return {
@@ -311,11 +436,18 @@ async def diagnose():
         "models_dir": models_dir,
         "whisper": {
             "exists": whisper_exists,
-            "files": whisper_files
+            "files": whisper_files,
+            "load_ms": whisper_load_ms,
+            "test_ms": whisper_test_ms,
+            "test_result": whisper_test_result,
+            "error": whisper_error
         },
         "embedding": {
             "exists": embed_exists,
-            "files": embed_files
+            "files": embed_files,
+            "load_ms": embed_load_ms,
+            "test_ms": embed_test_ms,
+            "error": embed_error
         },
         "memory": {
             "total_mb": total_mb,
@@ -349,97 +481,72 @@ async def transcribe(
         
     try:
         try:
-            whisper_model = get_whisper_model()
-                
-            whisper_lang = None
-            if language:
-                lang_lower = language.lower()
-                if lang_lower == "english":
-                    whisper_lang = "en"
-                elif lang_lower == "hindi":
-                    whisper_lang = "hi"
-                elif lang_lower == "tamil":
-                    whisper_lang = "ta"
-                elif lang_lower == "telugu":
-                    whisper_lang = "te"
-                elif lang_lower == "kannada":
-                    whisper_lang = "kn"
-                else:
-                    whisper_lang = lang_lower[:2]
-
-            try:
-                segments, info = whisper_model.transcribe(
-                    temp_path,
-                    language=whisper_lang,
-                    beam_size=5,
-                    vad_filter=True
-                )
-                segment_list = list(segments)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
-
-            if not segment_list:
-                processing_time = int((time.time() - start_time) * 1000)
-                return TranscriptionResponse(
-                    transcript="",
-                    language=info.language if info else "unknown",
-                    languageName="Other" if not info else LANGUAGE_NAMES.get(info.language, f"Other ({info.language})"),
-                    confidence=0.0,
-                    duration=info.duration if info else 0.0,
-                    wordCount=0,
-                    processingTimeMs=processing_time
-                )
-
-            transcript_text = " ".join([seg.text.strip() for seg in segment_list]).strip()
-            
-            if not transcript_text:
-                processing_time = int((time.time() - start_time) * 1000)
-                return TranscriptionResponse(
-                    transcript="",
-                    language=info.language if info else "unknown",
-                    languageName="Other" if not info else LANGUAGE_NAMES.get(info.language, f"Other ({info.language})"),
-                    confidence=0.0,
-                    duration=info.duration if info else 0.0,
-                    wordCount=0,
-                    processingTimeMs=processing_time
-                )
-
-            # Average logprobs to calculate confidence
-            logprobs = [seg.avg_logprob for seg in segment_list if seg.avg_logprob is not None]
-            if logprobs:
-                avg_logprob = sum(logprobs) / len(logprobs)
-                # Map typical avg_logprob range to [0.0, 1.0]
-                confidence = max(0.0, min(1.0, 1.0 + (avg_logprob / 5.0)))
-            else:
-                confidence = 1.0
-                
-            confidence = round(confidence, 2)
-            
-            detected_lang = info.language if info else "en"
-            lang_name = LANGUAGE_NAMES.get(detected_lang, f"Other ({detected_lang})")
-            
-            word_count = len(transcript_text.split())
-            processing_time = int((time.time() - start_time) * 1000)
-            
-            return TranscriptionResponse(
-                transcript=transcript_text,
-                language=detected_lang,
-                languageName=lang_name,
-                confidence=confidence,
-                duration=info.duration if info else 0.0,
-                wordCount=word_count,
-                processingTimeMs=processing_time
-            )
+            segment_list, info = run_transcription(temp_path, language)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
         finally:
             # Unload Whisper model in low-memory container to make space for embedding model
             try:
                 total_mb, _ = get_system_memory_info()
-                if total_mb < 1000 and "whisper" in models:
-                    del models["whisper"]
+                if total_mb < 1000:
+                    models.pop("whisper", None)
                     gc.collect()
                     print("[Model] Unloaded Whisper model to free memory")
-            except Exception:
-                pass
+            except Exception as ex:
+                print(f"Error unloading Whisper: {ex}")
+
+        if not segment_list:
+            processing_time = int((time.time() - start_time) * 1000)
+            return TranscriptionResponse(
+                transcript="",
+                language=info.language if info else "unknown",
+                languageName="Other" if not info else LANGUAGE_NAMES.get(info.language, f"Other ({info.language})"),
+                confidence=0.0,
+                duration=info.duration if info else 0.0,
+                wordCount=0,
+                processingTimeMs=processing_time
+            )
+
+        transcript_text = " ".join([seg.text.strip() for seg in segment_list]).strip()
+        
+        if not transcript_text:
+            processing_time = int((time.time() - start_time) * 1000)
+            return TranscriptionResponse(
+                transcript="",
+                language=info.language if info else "unknown",
+                languageName="Other" if not info else LANGUAGE_NAMES.get(info.language, f"Other ({info.language})"),
+                confidence=0.0,
+                duration=info.duration if info else 0.0,
+                wordCount=0,
+                processingTimeMs=processing_time
+            )
+
+        # Average logprobs to calculate confidence
+        logprobs = [seg.avg_logprob for seg in segment_list if seg.avg_logprob is not None]
+        if logprobs:
+            avg_logprob = sum(logprobs) / len(logprobs)
+            # Map typical avg_logprob range to [0.0, 1.0]
+            confidence = max(0.0, min(1.0, 1.0 + (avg_logprob / 5.0)))
+        else:
+            confidence = 1.0
+            
+        confidence = round(confidence, 2)
+        
+        detected_lang = info.language if info else "en"
+        lang_name = LANGUAGE_NAMES.get(detected_lang, f"Other ({detected_lang})")
+        
+        word_count = len(transcript_text.split())
+        processing_time = int((time.time() - start_time) * 1000)
+        
+        return TranscriptionResponse(
+            transcript=transcript_text,
+            language=detected_lang,
+            languageName=lang_name,
+            confidence=confidence,
+            duration=info.duration if info else 0.0,
+            wordCount=word_count,
+            processingTimeMs=processing_time
+        )
             
     finally:
         # Clean up temp file
@@ -457,22 +564,21 @@ async def embed(body: dict):
         raise HTTPException(status_code=400, detail="Text cannot be empty")
         
     try:
-        embedding_model = get_embedding_model()
-        embedding = embedding_model.encode(text, normalize_embeddings=True)
+        embedding_list = run_embedding(text)
     finally:
         # Unload embedding model in low-memory container to free memory
         try:
             total_mb, _ = get_system_memory_info()
-            if total_mb < 1000 and "embedding" in models:
-                del models["embedding"]
+            if total_mb < 1000:
+                models.pop("embedding", None)
                 gc.collect()
                 print("[Model] Unloaded embedding model to free memory")
         except Exception:
             pass
         
     response = EmbeddingResponse(
-        embedding=embedding.tolist(),
-        dimensions=len(embedding),
+        embedding=embedding_list,
+        dimensions=len(embedding_list),
         model=os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     )
     gc.collect()
@@ -487,21 +593,17 @@ async def similarity(request: SimilarityRequest):
         raise HTTPException(status_code=400, detail="Texts cannot be empty")
         
     try:
-        embedding_model = get_embedding_model()
-        embeddings = embedding_model.encode([textA, textB], normalize_embeddings=True)
+        score = run_similarity(textA, textB)
     finally:
         # Unload embedding model in low-memory container to free memory
         try:
             total_mb, _ = get_system_memory_info()
-            if total_mb < 1000 and "embedding" in models:
-                del models["embedding"]
+            if total_mb < 1000:
+                models.pop("embedding", None)
                 gc.collect()
                 print("[Model] Unloaded embedding model to free memory")
         except Exception:
             pass
-    
-    # cosine similarity is the dot product of the unit-length vectors
-    score = float(np.dot(embeddings[0], embeddings[1]))
     
     threshold_str = os.getenv("REPEATED_CONTENT_THRESHOLD", "0.92")
     try:
@@ -529,15 +631,13 @@ async def process(
     embedding_list = None
     if trans_response.transcript:
         try:
-            embedding_model = get_embedding_model()
-            embedding = embedding_model.encode(trans_response.transcript, normalize_embeddings=True)
-            embedding_list = embedding.tolist()
+            embedding_list = run_embedding(trans_response.transcript)
         finally:
             # Unload embedding model in low-memory container to free memory
             try:
                 total_mb, _ = get_system_memory_info()
-                if total_mb < 1000 and "embedding" in models:
-                    del models["embedding"]
+                if total_mb < 1000:
+                    models.pop("embedding", None)
                     gc.collect()
                     print("[Model] Unloaded embedding model to free memory")
             except Exception:
@@ -547,3 +647,4 @@ async def process(
     response_data["embedding"] = embedding_list
     gc.collect()
     return response_data
+
