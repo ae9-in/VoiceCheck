@@ -6,6 +6,10 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
+# Force Hugging Face cache to use the local .cache folder baked into the deployment slug
+project_dir = os.path.dirname(os.path.abspath(__file__))
+os.environ["HF_HOME"] = os.path.join(project_dir, ".cache", "huggingface")
+
 import sys
 import time
 import tempfile
