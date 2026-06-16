@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import tempfile
 import gc
@@ -52,7 +53,19 @@ def get_embedding_model():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("FastAPI startup: Models will be loaded lazily on demand.")
+    # Print memory diagnostics to help diagnose 502s on Render free tier
+    try:
+        import psutil
+        proc = psutil.Process(os.getpid())
+        mem_mb = proc.memory_info().rss / 1024 / 1024
+        print(f"[Startup] Python {sys.version}")
+        print(f"[Startup] Memory at boot: {mem_mb:.1f} MB")
+        total_mb = psutil.virtual_memory().total / 1024 / 1024
+        avail_mb = psutil.virtual_memory().available / 1024 / 1024
+        print(f"[Startup] System RAM: {total_mb:.0f} MB total, {avail_mb:.0f} MB available")
+    except ImportError:
+        print("[Startup] psutil not available — skipping memory diagnostics")
+    print("[Startup] FastAPI ready. Models will be loaded lazily on demand.")
     yield
     # Shutdown: Clear models
     models.clear()
@@ -60,11 +73,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="VoiceCheck Transcription Service", lifespan=lifespan)
 
 # CORS configuration
-cors_origins_raw = os.getenv(
-    "CORS_ORIGINS", 
-    "http://localhost:5173"
-)
-cors_origins = [origin.strip() for origin in cors_origins_raw.split(",")]
+# Defaults include both local dev and the production Vercel frontend.
+# Override by setting CORS_ORIGINS env var with a comma-separated list.
+_CORS_DEFAULTS = "http://localhost:5173,https://voice-check-rose.vercel.app"
+cors_origins_raw = os.getenv("CORS_ORIGINS", _CORS_DEFAULTS)
+cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+print(f"[CORS] Allowed origins: {cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
