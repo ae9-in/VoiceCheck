@@ -13,8 +13,6 @@ from dotenv import load_dotenv
 # Load env variables first
 load_dotenv()
 
-from faster_whisper import WhisperModel
-from sentence_transformers import SentenceTransformer
 from models.schemas import (
     TranscriptionResponse,
     EmbeddingResponse,
@@ -124,6 +122,7 @@ def get_whisper_model():
         print(f"[Model] Loading Whisper '{model_size}' on '{device}' ({compute_type})...")
         _log_memory("before-whisper")
         try:
+            from faster_whisper import WhisperModel
             models["whisper"] = WhisperModel(model_size, device=device, compute_type=compute_type)
             _log_memory("after-whisper")
             print(f"[Model] Whisper '{model_size}' loaded OK")
@@ -144,6 +143,7 @@ def get_embedding_model():
         print(f"[Model] Loading embedding model '{embedding_model_name}'...")
         _log_memory("before-embedding")
         try:
+            from sentence_transformers import SentenceTransformer
             models["embedding"] = SentenceTransformer(embedding_model_name)
             _log_memory("after-embedding")
             print(f"[Model] Embedding model '{embedding_model_name}' loaded OK")
