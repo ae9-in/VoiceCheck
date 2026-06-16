@@ -289,6 +289,41 @@ async def status(background_tasks: BackgroundTasks):
         embeddingModel=embedding_status
     )
 
+@app.get("/diagnose")
+async def diagnose():
+    import os
+    project_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.join(project_dir, "models")
+    
+    whisper_path = os.path.join(models_dir, "whisper-tiny")
+    embed_path = os.path.join(models_dir, "all-MiniLM-L6-v2")
+    
+    whisper_exists = os.path.exists(whisper_path)
+    whisper_files = os.listdir(whisper_path) if whisper_exists else []
+    
+    embed_exists = os.path.exists(embed_path)
+    embed_files = os.listdir(embed_path) if embed_exists else []
+    
+    total_mb, avail_mb = get_system_memory_info()
+    
+    return {
+        "project_dir": project_dir,
+        "models_dir": models_dir,
+        "whisper": {
+            "exists": whisper_exists,
+            "files": whisper_files
+        },
+        "embedding": {
+            "exists": embed_exists,
+            "files": embed_files
+        },
+        "memory": {
+            "total_mb": total_mb,
+            "avail_mb": avail_mb
+        },
+        "python_version": sys.version
+    }
+
 @app.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe(
     file: UploadFile = File(...),
