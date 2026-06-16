@@ -38,13 +38,62 @@ LANGUAGE_NAMES = {
     "kn": "Kannada",
 }
 
+def get_system_memory_info():
+    """Return total and available memory in MB, respecting cgroup limits if present."""
+    import psutil
+    
+    # Defaults from psutil (host level)
+    total_mb = psutil.virtual_memory().total / 1024 / 1024
+    avail_mb = psutil.virtual_memory().available / 1024 / 1024
+    
+    # Check cgroup limits (container level)
+    cgroup_limit = None
+    cgroup_usage = None
+    
+    # cgroups v2
+    try:
+        if os.path.exists("/sys/fs/cgroup/memory.max"):
+            with open("/sys/fs/cgroup/memory.max", "r") as f:
+                val = f.read().strip()
+                if val != "max":
+                    cgroup_limit = int(val)
+        if os.path.exists("/sys/fs/cgroup/memory.current"):
+            with open("/sys/fs/cgroup/memory.current", "r") as f:
+                cgroup_usage = int(f.read().strip())
+    except Exception:
+        pass
+        
+    # cgroups v1
+    if cgroup_limit is None:
+        try:
+            if os.path.exists("/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+                with open("/sys/fs/cgroup/memory/memory.limit_in_bytes", "r") as f:
+                    cgroup_limit = int(f.read().strip())
+            if os.path.exists("/sys/fs/cgroup/memory/memory.usage_in_bytes"):
+                with open("/sys/fs/cgroup/memory/memory.usage_in_bytes", "r") as f:
+                    cgroup_usage = int(f.read().strip())
+        except Exception:
+            pass
+            
+    # Ignore limit if it's unreasonably large (e.g. > 100GB, which usually means no limit)
+    if cgroup_limit is not None and cgroup_limit < 100 * 1024 * 1024 * 1024:
+        cgroup_limit_mb = cgroup_limit / 1024 / 1024
+        # If cgroup limit is lower than host total, use cgroup limit
+        if cgroup_limit_mb < total_mb:
+            total_mb = cgroup_limit_mb
+            if cgroup_usage is not None:
+                cgroup_usage_mb = cgroup_usage / 1024 / 1024
+                avail_mb = max(0.0, total_mb - cgroup_usage_mb)
+                
+    return total_mb, avail_mb
+
 def _log_memory(label: str):
-    """Print current process RSS memory to Render logs for debugging."""
+    """Print current process RSS memory and available system RAM to Render logs for debugging."""
     try:
         import psutil
         proc = psutil.Process(os.getpid())
         rss = proc.memory_info().rss / 1024 / 1024
-        avail = psutil.virtual_memory().available / 1024 / 1024
+        _, avail = get_system_memory_info()
         print(f"[Memory/{label}] RSS={rss:.0f}MB  available={avail:.0f}MB")
     except Exception:
         pass
@@ -57,14 +106,12 @@ def get_whisper_model():
         compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
 
         # Memory-aware safety guard: Render free tier has 512MB total.
-        # Whisper 'small' needs ~500MB alone. If total system RAM is under 1GB,
+        # Whisper 'small' needs ~500MB alone. If total system/cgroup RAM is under 1GB,
         # we must force 'tiny' (~75MB) to avoid OOM kills.
         try:
-            import psutil
-            total_mb = psutil.virtual_memory().total / 1024 / 1024
-            avail_mb = psutil.virtual_memory().available / 1024 / 1024
+            total_mb, avail_mb = get_system_memory_info()
             if total_mb < 1000 and model_size not in ("tiny", "base"):
-                print(f"[Model] WARNING: Total system RAM is only {total_mb:.0f}MB — "
+                print(f"[Model] WARNING: Total container RAM limit is only {total_mb:.0f}MB — "
                       f"forcing Whisper size to 'tiny' (requested '{model_size}') to avoid OOM.")
                 model_size = "tiny"
             elif model_size != "tiny" and avail_mb < 400:
@@ -119,8 +166,7 @@ async def lifespan(app: FastAPI):
         mem_mb = proc.memory_info().rss / 1024 / 1024
         print(f"[Startup] Python {sys.version}")
         print(f"[Startup] Memory at boot: {mem_mb:.1f} MB")
-        total_mb = psutil.virtual_memory().total / 1024 / 1024
-        avail_mb = psutil.virtual_memory().available / 1024 / 1024
+        total_mb, avail_mb = get_system_memory_info()
         print(f"[Startup] System RAM: {total_mb:.0f} MB total, {avail_mb:.0f} MB available")
     except ImportError:
         print("[Startup] psutil not available — skipping memory diagnostics")
