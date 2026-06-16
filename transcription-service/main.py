@@ -161,43 +161,44 @@ def get_whisper_model():
             raise HTTPException(status_code=503, detail=_model_load_error)
     return models["whisper"]
 
-def get_embedding_model():
+def get_onnx_embedding_model():
+    """Lazily load the ONNX session and tokenizer."""
     global _model_load_error
-    if "embedding" not in models:
-        embedding_model_name = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-        # Check if pre-downloaded model is available
+    if "embedding_onnx" not in models or "tokenizer" not in models:
         embed_path = os.path.join(project_dir, "models", "all-MiniLM-L6-v2")
-        if os.path.exists(embed_path) and os.listdir(embed_path):
-            embedding_model_name_or_path = embed_path
-            print(f"[Model] Using pre-downloaded embedding model at: {embed_path}")
-        else:
-            embedding_model_name_or_path = embedding_model_name
-            print(f"[Model] Using online embedding model: {embedding_model_name}")
-
-        print(f"[Model] Loading embedding model '{embedding_model_name_or_path}'...")
-        _log_memory("before-embedding")
+        onnx_path = os.path.join(embed_path, "onnx", "model.onnx")
+        
+        if not os.path.exists(onnx_path):
+            raise FileNotFoundError(f"ONNX model file not found at {onnx_path}")
+            
+        print("[Model] Loading ONNX embedding model...")
+        _log_memory("before-onnx-embedding")
         try:
-            # Set PyTorch to use 1 thread to avoid CPU/memory contention
-            try:
-                import torch
-                torch.set_num_threads(1)
-                print("[Model] Set PyTorch to 1 CPU thread")
-            except Exception as e:
-                print(f"[Model] Failed to set PyTorch threads: {e}")
-
-            from sentence_transformers import SentenceTransformer
-            models["embedding"] = SentenceTransformer(embedding_model_name_or_path)
-            _log_memory("after-embedding")
-            print(f"[Model] Embedding model '{embedding_model_name_or_path}' loaded OK")
-        except MemoryError as e:
-            _model_load_error = f"Out of memory loading embedding model '{embedding_model_name_or_path}': {e}"
-            print(f"[ERROR] {_model_load_error}")
-            raise HTTPException(status_code=503, detail=_model_load_error)
+            import onnxruntime as ort
+            from tokenizers import Tokenizer
+            
+            # Load tokenizer
+            tokenizer = Tokenizer.from_file(os.path.join(embed_path, "tokenizer.json"))
+            tokenizer.enable_truncation(max_length=512)
+            
+            # Configure single thread for ONNX Runtime to prevent thread contention
+            opts = ort.SessionOptions()
+            opts.intra_op_num_threads = 1
+            opts.inter_op_num_threads = 1
+            
+            # Load ONNX session
+            session = ort.InferenceSession(onnx_path, sess_options=opts, providers=["CPUExecutionProvider"])
+            
+            models["tokenizer"] = tokenizer
+            models["embedding_onnx"] = session
+            _log_memory("after-onnx-embedding")
+            print("[Model] ONNX embedding model loaded successfully")
         except Exception as e:
-            _model_load_error = f"Failed to load embedding model '{embedding_model_name_or_path}': {e}"
+            _model_load_error = f"Failed to load ONNX embedding model: {e}"
             print(f"[ERROR] {_model_load_error}")
             raise HTTPException(status_code=503, detail=_model_load_error)
-    return models["embedding"]
+            
+    return models["tokenizer"], models["embedding_onnx"]
 
 def run_transcription(audio_path: str, language: Optional[str]):
     """Scoped helper function to load and execute Whisper transcription.
@@ -230,18 +231,42 @@ def run_transcription(audio_path: str, language: Optional[str]):
     return segment_list, info
 
 def run_embedding(text: str) -> list[float]:
-    """Scoped helper function to load and execute sentence embedding.
+    """Scoped helper function to load and execute sentence embedding using ONNX Runtime.
     Local variables will go out of scope immediately when this returns."""
-    embedding_model = get_embedding_model()
-    embedding = embedding_model.encode(text, normalize_embeddings=True)
-    return embedding.tolist()
+    tokenizer, session = get_onnx_embedding_model()
+    
+    # Encode text
+    encoded = tokenizer.encode(text)
+    input_ids = np.array([encoded.ids], dtype=np.int64)
+    attention_mask = np.array([encoded.attention_mask], dtype=np.int64)
+    token_type_ids = np.array([encoded.type_ids], dtype=np.int64)
+    
+    # Run session
+    outputs = session.run(None, {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "token_type_ids": token_type_ids
+    })
+    
+    token_embeddings = outputs[0]
+    
+    # Mean Pooling - Take attention mask into account for correct averaging
+    input_mask_expanded = np.expand_dims(attention_mask, -1)
+    sum_embeddings = np.sum(token_embeddings * input_mask_expanded, 1)
+    sum_mask = np.clip(input_mask_expanded.sum(1), a_min=1e-9, a_max=None)
+    embedding = sum_embeddings / sum_mask
+    
+    # Normalize
+    norm = np.linalg.norm(embedding, ord=2, axis=-1, keepdims=True)
+    normalized_embedding = embedding / np.maximum(norm, 1e-12)
+    return normalized_embedding[0].tolist()
 
 def run_similarity(textA: str, textB: str) -> float:
     """Scoped helper function to load and execute sentence similarity comparison.
     Local variables will go out of scope immediately when this returns."""
-    embedding_model = get_embedding_model()
-    embeddings = embedding_model.encode([textA, textB], normalize_embeddings=True)
-    score = float(np.dot(embeddings[0], embeddings[1]))
+    embA = run_embedding(textA)
+    embB = run_embedding(textB)
+    score = float(np.dot(embA, embB))
     return score
 
 @asynccontextmanager
@@ -303,14 +328,14 @@ def load_models_if_needed():
         print(f"[Warmup] Whisper load failed: {e}")
         return  # Don't attempt embedding if Whisper already OOM'd
     try:
-        get_embedding_model()
+        get_onnx_embedding_model()
     except Exception as e:
-        print(f"[Warmup] Embedding load failed: {e}")
+        print(f"[Warmup] ONNX Embedding load failed: {e}")
 
 @app.get("/status", response_model=HealthResponse)
 async def status(background_tasks: BackgroundTasks):
     whisper_loaded = "whisper" in models
-    embedding_loaded = "embedding" in models
+    embedding_loaded = "embedding_onnx" in models
     models_loaded = whisper_loaded and embedding_loaded
 
     try:
@@ -405,28 +430,55 @@ async def diagnose():
                 del whisper_model
             gc.collect()
             
-    # Try loading and testing embedding
+    # Try loading and testing embedding using ONNX Runtime
     if embed_exists:
-        embedding_model = None
+        session = None
+        tokenizer = None
         try:
             t0 = time.time()
-            from sentence_transformers import SentenceTransformer
-            try:
-                import torch
-                torch.set_num_threads(1)
-            except Exception:
-                pass
-            embedding_model = SentenceTransformer(embed_path)
+            import onnxruntime as ort
+            from tokenizers import Tokenizer
+            
+            onnx_file_path = os.path.join(embed_path, "onnx", "model.onnx")
+            tokenizer = Tokenizer.from_file(os.path.join(embed_path, "tokenizer.json"))
+            tokenizer.enable_truncation(max_length=512)
+            
+            # Set single thread
+            opts = ort.SessionOptions()
+            opts.intra_op_num_threads = 1
+            opts.inter_op_num_threads = 1
+            
+            session = ort.InferenceSession(onnx_file_path, sess_options=opts, providers=["CPUExecutionProvider"])
             embed_load_ms = int((time.time() - t0) * 1000)
             
             t1 = time.time()
-            embedding_model.encode("hello world", normalize_embeddings=True)
+            encoded = tokenizer.encode("hello world")
+            input_ids = np.array([encoded.ids], dtype=np.int64)
+            attention_mask = np.array([encoded.attention_mask], dtype=np.int64)
+            token_type_ids = np.array([encoded.type_ids], dtype=np.int64)
+            
+            outputs = session.run(None, {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+                "token_type_ids": token_type_ids
+            })
+            
+            token_embeddings = outputs[0]
+            input_mask_expanded = np.expand_dims(attention_mask, -1)
+            sum_embeddings = np.sum(token_embeddings * input_mask_expanded, 1)
+            sum_mask = np.clip(input_mask_expanded.sum(1), a_min=1e-9, a_max=None)
+            embedding = sum_embeddings / sum_mask
+            norm = np.linalg.norm(embedding, ord=2, axis=-1, keepdims=True)
+            normalized_embedding = embedding / np.maximum(norm, 1e-12)
+            
             embed_test_ms = int((time.time() - t1) * 1000)
         except Exception as e:
             embed_error = str(e)
         finally:
-            if embedding_model is not None:
-                del embedding_model
+            if session is not None:
+                del session
+            if tokenizer is not None:
+                del tokenizer
             gc.collect()
             
     total_mb, avail_mb = get_system_memory_info()
@@ -570,9 +622,10 @@ async def embed(body: dict):
         try:
             total_mb, _ = get_system_memory_info()
             if total_mb < 1000:
-                models.pop("embedding", None)
+                models.pop("embedding_onnx", None)
+                models.pop("tokenizer", None)
                 gc.collect()
-                print("[Model] Unloaded embedding model to free memory")
+                print("[Model] Unloaded ONNX embedding model to free memory")
         except Exception:
             pass
         
@@ -599,9 +652,10 @@ async def similarity(request: SimilarityRequest):
         try:
             total_mb, _ = get_system_memory_info()
             if total_mb < 1000:
-                models.pop("embedding", None)
+                models.pop("embedding_onnx", None)
+                models.pop("tokenizer", None)
                 gc.collect()
-                print("[Model] Unloaded embedding model to free memory")
+                print("[Model] Unloaded ONNX embedding model to free memory")
         except Exception:
             pass
     
@@ -637,9 +691,10 @@ async def process(
             try:
                 total_mb, _ = get_system_memory_info()
                 if total_mb < 1000:
-                    models.pop("embedding", None)
+                    models.pop("embedding_onnx", None)
+                    models.pop("tokenizer", None)
                     gc.collect()
-                    print("[Model] Unloaded embedding model to free memory")
+                    print("[Model] Unloaded ONNX embedding model to free memory")
             except Exception:
                 pass
         
