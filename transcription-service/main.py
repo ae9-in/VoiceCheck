@@ -5,7 +5,7 @@ import gc
 import numpy as np
 from contextlib import asynccontextmanager
 from typing import Optional
-from fastapi import FastAPI, UploadFile, File, Query, HTTPException
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -71,13 +71,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def load_models_if_needed():
+    # Calling the getter functions triggers lazy loading if not already loaded
+    get_whisper_model()
+    get_embedding_model()
+
 @app.get("/status", response_model=HealthResponse)
-async def status():
-    # Return ok even if they are not loaded yet to pass Render's startup checks
+async def status(background_tasks: BackgroundTasks):
+    whisper_loaded = "whisper" in models
+    embedding_loaded = "embedding" in models
+    models_loaded = whisper_loaded and embedding_loaded
+    
+    # If models aren't loaded yet, trigger background load
+    # so the next real request doesn't have to wait
+    if not models_loaded:
+        background_tasks.add_task(load_models_if_needed)
+        
+    whisper_model_size = os.getenv("WHISPER_MODEL_SIZE", "tiny")
+    embedding_model_name = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+    
     return HealthResponse(
         status="ok",
-        whisperModel=os.getenv("WHISPER_MODEL_SIZE", "tiny"),
-        embeddingModel=os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+        whisperModel=whisper_model_size if whisper_loaded else "loading",
+        embeddingModel=embedding_model_name if embedding_loaded else "loading"
     )
 
 @app.post("/transcribe", response_model=TranscriptionResponse)
