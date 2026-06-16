@@ -60,12 +60,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="VoiceCheck Transcription Service", lifespan=lifespan)
 
 # CORS configuration
-origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173")
-origins = [o.strip() for o in origins_str.split(",") if o.strip()]
+cors_origins_raw = os.getenv(
+    "CORS_ORIGINS", 
+    "http://localhost:5173"
+)
+cors_origins = [origin.strip() for origin in cors_origins_raw.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
