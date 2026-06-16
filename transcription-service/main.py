@@ -6,9 +6,8 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-# Force Hugging Face cache to use the local .cache folder baked into the deployment slug
+# Model path definitions
 project_dir = os.path.dirname(os.path.abspath(__file__))
-os.environ["HF_HOME"] = os.path.join(project_dir, ".cache", "huggingface")
 
 import sys
 import time
@@ -130,25 +129,34 @@ def get_whisper_model():
         except Exception:
             pass
 
+        # Check if pre-downloaded model is available
+        whisper_path = os.path.join(project_dir, "models", "whisper-tiny")
+        if os.path.exists(whisper_path) and os.listdir(whisper_path):
+            model_size_or_path = whisper_path
+            print(f"[Model] Using pre-downloaded Whisper model at: {whisper_path}")
+        else:
+            model_size_or_path = model_size
+            print(f"[Model] Using online Whisper model: {model_size}")
+
         cpu_threads = int(os.getenv("WHISPER_CPU_THREADS", "1"))
-        print(f"[Model] Loading Whisper '{model_size}' on '{device}' ({compute_type}) with {cpu_threads} threads...")
+        print(f"[Model] Loading Whisper '{model_size_or_path}' on '{device}' ({compute_type}) with {cpu_threads} threads...")
         _log_memory("before-whisper")
         try:
             from faster_whisper import WhisperModel
             models["whisper"] = WhisperModel(
-                model_size, 
+                model_size_or_path, 
                 device=device, 
                 compute_type=compute_type,
                 cpu_threads=cpu_threads
             )
             _log_memory("after-whisper")
-            print(f"[Model] Whisper '{model_size}' loaded OK")
+            print(f"[Model] Whisper '{model_size_or_path}' loaded OK")
         except MemoryError as e:
-            _model_load_error = f"Out of memory loading Whisper '{model_size}': {e}"
+            _model_load_error = f"Out of memory loading Whisper '{model_size_or_path}': {e}"
             print(f"[ERROR] {_model_load_error}")
             raise HTTPException(status_code=503, detail=_model_load_error)
         except Exception as e:
-            _model_load_error = f"Failed to load Whisper '{model_size}': {e}"
+            _model_load_error = f"Failed to load Whisper '{model_size_or_path}': {e}"
             print(f"[ERROR] {_model_load_error}")
             raise HTTPException(status_code=503, detail=_model_load_error)
     return models["whisper"]
@@ -157,19 +165,28 @@ def get_embedding_model():
     global _model_load_error
     if "embedding" not in models:
         embedding_model_name = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-        print(f"[Model] Loading embedding model '{embedding_model_name}'...")
+        # Check if pre-downloaded model is available
+        embed_path = os.path.join(project_dir, "models", "all-MiniLM-L6-v2")
+        if os.path.exists(embed_path) and os.listdir(embed_path):
+            embedding_model_name_or_path = embed_path
+            print(f"[Model] Using pre-downloaded embedding model at: {embed_path}")
+        else:
+            embedding_model_name_or_path = embedding_model_name
+            print(f"[Model] Using online embedding model: {embedding_model_name}")
+
+        print(f"[Model] Loading embedding model '{embedding_model_name_or_path}'...")
         _log_memory("before-embedding")
         try:
             from sentence_transformers import SentenceTransformer
-            models["embedding"] = SentenceTransformer(embedding_model_name)
+            models["embedding"] = SentenceTransformer(embedding_model_name_or_path)
             _log_memory("after-embedding")
-            print(f"[Model] Embedding model '{embedding_model_name}' loaded OK")
+            print(f"[Model] Embedding model '{embedding_model_name_or_path}' loaded OK")
         except MemoryError as e:
-            _model_load_error = f"Out of memory loading embedding model '{embedding_model_name}': {e}"
+            _model_load_error = f"Out of memory loading embedding model '{embedding_model_name_or_path}': {e}"
             print(f"[ERROR] {_model_load_error}")
             raise HTTPException(status_code=503, detail=_model_load_error)
         except Exception as e:
-            _model_load_error = f"Failed to load embedding model '{embedding_model_name}': {e}"
+            _model_load_error = f"Failed to load embedding model '{embedding_model_name_or_path}': {e}"
             print(f"[ERROR] {_model_load_error}")
             raise HTTPException(status_code=503, detail=_model_load_error)
     return models["embedding"]
