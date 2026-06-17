@@ -17,6 +17,7 @@ export default function Recordings() {
   const [candidateFilter, setCandidateFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [userFilter, setUserFilter] = useState('all');
 
   // Sorting States
   const [sortField, setSortField] = useState('uploadTime');
@@ -33,7 +34,28 @@ export default function Recordings() {
   // Reset to page 1 on filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterStatus, candidateFilter, dateFrom, dateTo]);
+  }, [searchQuery, filterStatus, candidateFilter, dateFrom, dateTo, userFilter]);
+
+  // Compute user transcription counts
+  const userStats = useMemo(() => {
+    const stats = {};
+    recordings.forEach(rec => {
+      const userId = rec.uploadedBy?.id || 'admin';
+      const userName = rec.uploadedBy?.name || 'VoiceCheck Administrator';
+      const userEmail = rec.uploadedBy?.email || 'admin@voicecheck.com';
+      
+      if (!stats[userId]) {
+        stats[userId] = {
+          id: userId,
+          name: userName,
+          email: userEmail,
+          count: 0
+        };
+      }
+      stats[userId].count++;
+    });
+    return Object.values(stats).sort((a, b) => b.count - a.count);
+  }, [recordings]);
 
   // Format Helper functions
   const formatDuration = (seconds) => {
@@ -74,8 +96,8 @@ export default function Recordings() {
 
   // Determine active filters
   const isFilterActive = useMemo(() => {
-    return searchQuery !== '' || filterStatus !== 'all' || candidateFilter !== '' || dateFrom !== '' || dateTo !== '';
-  }, [searchQuery, filterStatus, candidateFilter, dateFrom, dateTo]);
+    return searchQuery !== '' || filterStatus !== 'all' || candidateFilter !== '' || dateFrom !== '' || dateTo !== '' || userFilter !== 'all';
+  }, [searchQuery, filterStatus, candidateFilter, dateFrom, dateTo, userFilter]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -84,8 +106,9 @@ export default function Recordings() {
     if (candidateFilter !== '') count++;
     if (dateFrom !== '') count++;
     if (dateTo !== '') count++;
+    if (userFilter !== 'all') count++;
     return count;
-  }, [searchQuery, filterStatus, candidateFilter, dateFrom, dateTo]);
+  }, [searchQuery, filterStatus, candidateFilter, dateFrom, dateTo, userFilter]);
 
   // Clear all filters
   const handleClearAllFilters = () => {
@@ -94,6 +117,7 @@ export default function Recordings() {
     setCandidateFilter('');
     setDateFrom('');
     setDateTo('');
+    setUserFilter('all');
   };
 
   // Filter and Sort recordings list
@@ -115,8 +139,12 @@ export default function Recordings() {
         const matchesDateTo = !dateTo || 
           new Date(r.uploadTime) <= new Date(dateTo + 'T23:59:59');
           
+        const matchesUser = userFilter === 'all' || 
+          (userFilter === 'admin' && !r.uploadedBy) ||
+          r.uploadedBy?.id === userFilter;
+          
         return matchesSearch && matchesStatus && matchesCandidate && 
-               matchesDateFrom && matchesDateTo;
+               matchesDateFrom && matchesDateTo && matchesUser;
       })
       .sort((a, b) => {
         if (!sortField) return 0;
@@ -133,7 +161,7 @@ export default function Recordings() {
           ? (aVal > bVal ? 1 : -1) 
           : (aVal < bVal ? 1 : -1);
       });
-  }, [recordings, searchQuery, filterStatus, candidateFilter, dateFrom, dateTo, sortField, sortDir]);
+  }, [recordings, searchQuery, filterStatus, candidateFilter, dateFrom, dateTo, userFilter, sortField, sortDir]);
 
   // Paginated recordings
   const totalPages = Math.ceil(filteredRecordings.length / ROWS_PER_PAGE) || 1;
@@ -272,6 +300,22 @@ export default function Recordings() {
               className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
           </div>
+
+          {/* User select filter with counts */}
+          <div className="min-w-[180px] flex-1 sm:flex-none">
+            <select
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="all">All Transcribers</option>
+              {userStats.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.count} {u.count === 1 ? 'transcription' : 'transcriptions'})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Right Active badges */}
@@ -325,7 +369,7 @@ export default function Recordings() {
 
             {/* Table element */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[900px]">
+              <table className="w-full text-left border-collapse min-w-[1050px]">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50/50">
                     <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[48px]">#</th>
@@ -358,6 +402,10 @@ export default function Recordings() {
                         Upload Date
                         {renderSortIcon('uploadTime')}
                       </div>
+                    </th>
+
+                    <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[150px]">
+                      Transcribed By
                     </th>
 
                     <th 
@@ -424,6 +472,12 @@ export default function Recordings() {
                           <div className="flex flex-col text-xs font-medium text-gray-600">
                             <span className="font-semibold text-gray-700">{formatDate(rec.uploadTime)}</span>
                             <span className="text-gray-400 text-[10px] mt-0.5">{timeAgo(rec.uploadTime)}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-sm">
+                          <div className="flex flex-col">
+                            <span className="text-gray-900 font-semibold text-xs leading-normal">{rec.uploadedBy?.name || 'VoiceCheck Administrator'}</span>
+                            <span className="text-gray-400 text-[10px] font-semibold mt-0.5">{rec.uploadedBy?.email || 'admin@voicecheck.com'}</span>
                           </div>
                         </td>
                         <td className="px-5 py-3.5 text-sm text-gray-700 font-semibold">{formatDuration(rec.duration)}</td>
@@ -672,6 +726,10 @@ export default function Recordings() {
               <div className="flex justify-between py-2.5 border-b border-gray-50">
                 <span className="text-gray-500 font-medium">Processed At</span>
                 <span className="text-gray-900 font-semibold">{formatDate(selectedRecording.transcriptProcessedAt)}</span>
+              </div>
+              <div className="flex justify-between py-2.5 border-b border-gray-50">
+                <span className="text-gray-500 font-medium">Transcribed By</span>
+                <span className="text-gray-905 font-semibold">{selectedRecording.uploadedBy?.name || 'VoiceCheck Administrator'}</span>
               </div>
               <div className="flex justify-between py-2.5">
                 <span className="text-gray-500 font-medium">Confidence Score</span>

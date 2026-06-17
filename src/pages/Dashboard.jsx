@@ -364,6 +364,7 @@ export default function Dashboard() {
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3 bg-gray-50">Recording ID</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3 bg-gray-50">Candidate</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3 bg-gray-50">Upload Time</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3 bg-gray-50">Transcribed By</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3 bg-gray-50">Duration</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3 bg-gray-50">Status</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3 bg-gray-50">Actions</th>
@@ -389,6 +390,12 @@ export default function Dashboard() {
                       <div className="flex flex-col">
                         <span className="text-xs font-semibold text-gray-700">{formatDate(rec.uploadTime)}</span>
                         <span className="text-[10px] text-gray-400 mt-0.5 font-medium">{timeAgo(rec.uploadTime)}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm">
+                      <div className="flex flex-col">
+                        <span className="text-gray-900 font-semibold text-xs leading-normal">{rec.uploadedBy?.name || 'VoiceCheck Administrator'}</span>
+                        <span className="text-gray-400 text-[10px] font-semibold mt-0.5">{rec.uploadedBy?.email || 'admin@voicecheck.com'}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-sm text-gray-700 font-medium">
@@ -627,6 +634,10 @@ export default function Dashboard() {
               <div className="flex justify-between py-2.5 border-b border-gray-50">
                 <span className="text-gray-500 font-medium">Processed At</span>
                 <span className="text-gray-900 font-semibold">{formatDate(selectedRecording.transcriptProcessedAt)}</span>
+              </div>
+              <div className="flex justify-between py-2.5 border-b border-gray-50">
+                <span className="text-gray-500 font-medium">Transcribed By</span>
+                <span className="text-gray-905 font-semibold">{selectedRecording.uploadedBy?.name || 'VoiceCheck Administrator'}</span>
               </div>
               <div className="flex justify-between py-2.5">
                 <span className="text-gray-500 font-medium">Confidence Score</span>

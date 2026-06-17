@@ -4,6 +4,7 @@ import { Upload, X, Music, Clock, FileAudio, CheckCircle2, Loader2,
          Circle, Copy, Activity, Globe, Shield, Lock, AlertCircle,
          ChevronRight, CloudOff, MinusCircle } from 'lucide-react'
 import { useRecordingStore } from '../store/useRecordingStore'
+import { useAuthStore } from '../store/useAuthStore'
 import PageHeader from '../components/ui/PageHeader'
 import StatusBadge from '../components/ui/StatusBadge'
 import ToastNotification from '../components/ui/ToastNotification'
@@ -17,6 +18,7 @@ import { findMostSimilarTranscript } from '../utils/similarity'
 export default function UploadRecording() {
   const navigate = useNavigate();
   const { addRecording, recordings } = useRecordingStore();
+  const { user } = useAuthStore();
   const fileInputRef = useRef(null);
   const timeoutsRef = useRef([]);
 
@@ -455,7 +457,8 @@ export default function UploadRecording() {
         cloudinaryUrl: uploadRes.url,
         cloudinaryPublicId: uploadRes.publicId,
         // Guardrail: embedding must always be null when transcription wasn't completed
-        transcriptEmbedding: transcriptStatus === 'completed' ? transcriptEmbedding : null
+        transcriptEmbedding: transcriptStatus === 'completed' ? transcriptEmbedding : null,
+        uploadedBy: user?.id || null
       };
 
       // Add to store and save in DB

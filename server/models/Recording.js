@@ -59,6 +59,11 @@ const RecordingSchema = new mongoose.Schema({
   },
   transcript_embedding: {
     type: [Number]
+  },
+  uploaded_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    index: true
   }
 }, {
   timestamps: true

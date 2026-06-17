@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useAuthStore } from './useAuthStore';
 
 function createSeededRandom(seedStr) {
   let h = 0;
@@ -100,22 +101,26 @@ export const useRecordingStore = create((set, get) => ({
       }
       
       const saved = await res.json();
+      const user = useAuthStore.getState().user;
       const mappedSaved = {
         ...saved,
         cloudinaryUrl: saved.cloudinaryUrl || recToSend.cloudinaryUrl,
         cloudinaryPublicId: saved.cloudinaryPublicId || recToSend.cloudinaryPublicId,
         transcriptEmbedding: saved.transcriptEmbedding ?? recToSend.transcriptEmbedding,
-        transcriptStatus: saved.transcriptStatus || recToSend.transcriptStatus || 'skipped'
+        transcriptStatus: saved.transcriptStatus || recToSend.transcriptStatus || 'skipped',
+        uploadedBy: saved.uploadedBy || (user ? { id: user.id, name: user.name, email: user.email } : null)
       };
       
       set((state) => ({ recordings: [mappedSaved, ...state.recordings] }));
     } catch (err) {
       console.error("Offline: adding recording only to local state.", err.message, err.responseBody || null);
+      const user = useAuthStore.getState().user;
       set((state) => ({ 
         recordings: [{
           ...recToSend,
           cloudinaryUrl: recToSend.cloudinaryUrl,
           cloudinaryPublicId: recToSend.cloudinaryPublicId,
+          uploadedBy: user ? { id: user.id, name: user.name, email: user.email } : null
         }, ...state.recordings] 
       }));
     }

@@ -1,21 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import ToastNotification from '../components/ui/ToastNotification';
 import { User, Shield, Bell, LogOut, Edit, Check, Settings as SettingsIcon } from 'lucide-react';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function Settings() {
+  const { user, logout } = useAuthStore();
+
   // Toast notifications
   const [toastMessage, setToastMessage] = useState('');
   const [isToastOpen, setIsToastOpen] = useState(false);
   const [toastType, setToastType] = useState('success');
 
   // Input states
-  const [displayName, setDisplayName] = useState('Alexander Sterling');
-  const [email, setEmail] = useState('a.sterling@voicecheck.ai');
+  const [displayName, setDisplayName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [sampleRate, setSampleRate] = useState('48.0 kHz');
   const [sensitivity, setSensitivity] = useState(70); // 0-100
   const [emailSummaries, setEmailSummaries] = useState(true);
   const [desktopAlerts, setDesktopAlerts] = useState(false);
+
+  // Sync state if user loads
+  useEffect(() => {
+    if (user) {
+      setDisplayName(user.name || '');
+      setEmail(user.email || '');
+    }
+  }, [user]);
 
   const showToast = (msg, type = 'success') => {
     setToastMessage(msg);
@@ -28,16 +39,15 @@ export default function Settings() {
     showToast('Profile configuration saved successfully.');
   };
 
-  const handleChangePassword = () => {
-    showToast('Password reset link sent to your administrator email.');
-  };
-
   const handleSensitivityChange = (e) => {
     setSensitivity(parseInt(e.target.value));
   };
 
   const handleLogout = () => {
     showToast('Session ended. Logging out...', 'info');
+    setTimeout(() => {
+      logout();
+    }, 1000);
   };
 
   // Calculate sensitivity color track percentage
@@ -67,7 +77,7 @@ export default function Settings() {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-lg">
         
         {/* Profile Settings */}
-        <section className="md:col-span-8 bg-white border border-outline-variant rounded-xl p-lg shadow-xs">
+        <section className="md:col-span-12 bg-white border border-outline-variant rounded-xl p-lg shadow-xs">
           <div className="flex items-center gap-md mb-lg">
             <User className="text-primary" size={20} strokeWidth={1.5} />
             <h3 className="font-display text-sm lg:text-base font-bold text-on-surface uppercase tracking-wider">Profile Settings</h3>
@@ -76,11 +86,9 @@ export default function Settings() {
           <form onSubmit={handleSaveProfile} className="space-y-md">
             <div className="flex flex-col md:flex-row md:items-center gap-lg py-md border-b border-outline-variant/60">
               <div className="relative w-16 h-16 group flex-shrink-0">
-                <img 
-                  alt="User Avatar"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXYt1gGwslMLyryM6IuAZmCssUSmYEnbD9CBgzyO61vYqPZKLgtp7OYNmAqydpvXRloMCXOjyYQ9I3v5Q2gmwckqQ76pH4-yFhmIVswl94E69jSlDIIupPb8IgIy13GMQI-LSEGi-W9GuvfZGoM1OJ4-8IoapeptIhCVaHnFFPg07t3AOmMUGL9Tp2UHALbf1qZE2PjwofVeRArYXLHtHjcNJJYXdo1pUmmcdTG31yJoyGo6MZd4oxbnIbNodq8ekmJpY8Nt9HETcX"
-                  className="w-full h-full rounded-full object-cover border-2 border-primary"
-                />
+                <div className="w-full h-full rounded-full bg-indigo-50 border-2 border-primary text-indigo-750 flex items-center justify-center font-bold text-lg shadow-2xs">
+                  {displayName ? displayName.split(' ').map(n => n[0]).join('').toUpperCase() : 'US'}
+                </div>
                 <button 
                   type="button" 
                   onClick={() => showToast('Avatar updates are currently restricted by enterprise policies.', 'info')}
@@ -120,25 +128,6 @@ export default function Settings() {
               </button>
             </div>
           </form>
-        </section>
-
-        {/* Security Quick Action */}
-        <section className="md:col-span-4 bg-primary-container text-on-primary-container border border-primary/50 rounded-xl p-lg flex flex-col justify-between shadow-xs">
-          <div className="space-y-sm">
-            <div className="flex items-center gap-md mb-xs">
-              <Shield size={20} strokeWidth={1.5} />
-              <h3 className="font-display text-sm lg:text-base font-bold uppercase tracking-wider">Security Control</h3>
-            </div>
-            <p className="text-xs opacity-90 leading-relaxed font-medium">
-              Maintain credential integrity by periodically regenerating your multi-factor verification keys.
-            </p>
-          </div>
-          <button 
-            onClick={handleChangePassword}
-            className="mt-lg w-full bg-white text-primary font-bold text-xs py-2.5 rounded-full hover:bg-surface-container-high transition-colors duration-200 active:scale-[0.98]"
-          >
-            Change Credentials
-          </button>
         </section>
 
         {/* Audio Processing Configuration */}

@@ -26,6 +26,14 @@ router.get('/', async (req, res) => {
         }
       },
       {
+        $lookup: {
+          from: 'users',
+          localField: 'uploaded_by',
+          foreignField: '_id',
+          as: 'uploadedByUser'
+        }
+      },
+      {
         $sort: { upload_time: -1 }
       }
     ]);
@@ -33,6 +41,7 @@ router.get('/', async (req, res) => {
     const formatted = recordings.map(rec => {
       const transcriptObj = rec.transcript[0] || {};
       const dupObj = rec.duplicateMapping[0] || {};
+      const userObj = rec.uploadedByUser[0] || {};
       return {
         recordingId: rec.recording_id,
         candidateId: rec.candidate_id,
@@ -53,7 +62,12 @@ router.get('/', async (req, res) => {
         transcriptText: transcriptObj.transcript_text || '',
         confidenceScore: transcriptObj.confidence_score || 0,
         language: transcriptObj.language || 'English',
-        transcriptProcessedAt: transcriptObj.transcript_processed_at || null
+        transcriptProcessedAt: transcriptObj.transcript_processed_at || null,
+        uploadedBy: userObj._id ? {
+          id: userObj._id,
+          name: userObj.name,
+          email: userObj.email
+        } : null
       };
     });
 
@@ -86,7 +100,8 @@ router.post('/', async (req, res) => {
       transcriptProcessedAt,
       cloudinaryUrl,
       cloudinaryPublicId,
-      transcriptEmbedding
+      transcriptEmbedding,
+      uploadedBy
     } = req.body;
 
     const newRecording = new Recording({
@@ -102,7 +117,8 @@ router.post('/', async (req, res) => {
       transcript_status: transcriptStatus || 'skipped',
       cloudinary_url: cloudinaryUrl,
       cloudinary_public_id: cloudinaryPublicId,
-      transcript_embedding: transcriptEmbedding
+      transcript_embedding: transcriptEmbedding,
+      uploaded_by: uploadedBy || null
     });
     await newRecording.save();
 
